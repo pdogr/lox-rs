@@ -2,9 +2,8 @@ use std::io::Write;
 use std::rc::Rc;
 
 use crate::anyhow;
-use crate::ast::Expr;
+use crate::ast::*;
 use crate::new_env;
-use crate::object::FuncInner;
 use crate::pop_env;
 use crate::push_env;
 use crate::Env;
@@ -42,21 +41,21 @@ impl<W: Write> Interpreter<W> {
             Stmt::Expr(expr) => {
                 let _ = Evaluator::evaluate(expr, Rc::clone(&self.env), self)?;
             }
-            Stmt::Decl { ident, definition } => {
+            Stmt::VariableDecl(VariableDecl { name, definition }) => {
                 let definition = definition.unwrap_or(Expr::Nil);
                 let value = Evaluator::evaluate(definition, Rc::clone(&self.env), self)?;
-                self.env.borrow_mut().insert(ident, value);
+                self.env.borrow_mut().insert(name, value);
             }
             Stmt::Block(stmts) => {
                 self.push_scope();
                 self.run_many(stmts.to_vec())?;
                 self.pop_scope();
             }
-            Stmt::Cond {
+            Stmt::Conditional(Conditional {
                 cond,
                 if_branch,
                 else_branch,
-            } => {
+            }) => {
                 let cond = Evaluator::evaluate(cond, Rc::clone(&self.env), self)?;
                 match cond {
                     Object::Boolean(true) => {
@@ -70,19 +69,23 @@ impl<W: Write> Interpreter<W> {
                     x => return Err(ErrorOrCtxJmp::Error(anyhow!("expected bool found {}", x))),
                 };
             }
-            Stmt::Loop { cond, body } => loop {
+            Stmt::Loop(Loop { cond, body }) => loop {
                 let cond_val = Evaluator::evaluate(cond.clone(), Rc::clone(&self.env), self)?;
                 if !cond_val.is_truth() {
                     break;
                 }
                 self.run(*body.clone())?;
             },
-            Stmt::Function { name, params, body } => {
-                let func =
-                    Object::Func(FuncInner::new(name.clone(), params, body, self.env.clone()));
+            Stmt::FunctionDecl(FunctionDecl { name, params, body }) => {
+                let func = Object::FuncObject(FuncObject::new(
+                    name.clone(),
+                    params,
+                    body,
+                    self.env.clone(),
+                ));
                 self.env.borrow_mut().insert(name, func);
             }
-            Stmt::Return { value } => {
+            Stmt::Return(value) => {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
                 return Err(ErrorOrCtxJmp::RetJump { object: value });
             }

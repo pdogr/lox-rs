@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::anyhow;
+use crate::ast::*;
 use crate::ErrorOrCtxJmp;
 use crate::Object;
 use crate::Result;
 
 #[derive(Debug)]
 pub struct EnvInner {
-    values: HashMap<String, Rc<RefCell<Object>>>,
+    values: HashMap<Identifier, Rc<RefCell<Object>>>,
     pub enclosing: Option<Rc<RefCell<EnvInner>>>,
 }
 
@@ -28,7 +29,7 @@ impl EnvInner {
         }
     }
 
-    fn _get(env: &EnvInner, id: &String) -> Result<Rc<RefCell<Object>>> {
+    fn _get(env: &EnvInner, id: &Identifier) -> Result<Rc<RefCell<Object>>> {
         match env.values.get(id) {
             Some(val) => Ok(Rc::clone(val)),
             None => match &env.enclosing {
@@ -38,11 +39,11 @@ impl EnvInner {
         }
     }
 
-    pub fn get(&self, id: &String) -> Result<Rc<RefCell<Object>>> {
+    pub fn get(&self, id: &Identifier) -> Result<Rc<RefCell<Object>>> {
         EnvInner::_get(&self, id)
     }
 
-    pub fn insert(&mut self, id: String, o: Object) -> Option<Rc<RefCell<Object>>> {
+    pub fn insert(&mut self, id: Identifier, o: Object) -> Option<Rc<RefCell<Object>>> {
         self.values.insert(id, Rc::new(RefCell::new(o)))
     }
 }

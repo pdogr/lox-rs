@@ -1,6 +1,8 @@
+use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::{stmt::Stmt, TokenType};
+use crate::Env;
+use crate::TokenType;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum UnaryOp {
@@ -75,37 +77,167 @@ impl From<&TokenType> for BinaryOp {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct Identifier(String);
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for Identifier {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Argument {
+    pub(crate) value: Expr,
+}
+
+impl From<Expr> for Argument {
+    fn from(e: Expr) -> Self {
+        Self { value: e }
+    }
+}
+
+impl Into<Expr> for Argument {
+    fn into(self) -> Expr {
+        self.value
+    }
+}
+
+pub type Arguments = Vec<Argument>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Nil,
     Int(i64),
     Float(f64),
     Boolean(bool),
-    Ident(String),
+    Ident(Identifier),
     String(String),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
     Logical(BinaryOp, Box<Expr>, Box<Expr>),
-    Call(Box<Expr>, Vec<Expr>),
-    Lambda(Vec<String>, Vec<Stmt>),
+    Call(Box<Expr>, Arguments),
+    Lambda(Vec<Identifier>, Vec<Stmt>),
 }
 
-impl Display for Expr {
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariableDecl {
+    pub(crate) name: Identifier,
+    pub(crate) definition: Option<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionDecl {
+    pub(crate) name: Identifier,
+    pub(crate) params: Vec<Identifier>,
+    pub(crate) body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Conditional {
+    pub(crate) cond: Expr,
+    pub(crate) if_branch: Box<Stmt>,
+    pub(crate) else_branch: Option<Box<Stmt>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Loop {
+    pub(crate) cond: Expr,
+    pub(crate) body: Box<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stmt {
+    Print(Expr),
+    Expr(Expr),
+    VariableDecl(VariableDecl),
+    Block(Vec<Stmt>),
+    Conditional(Conditional),
+    Loop(Loop),
+    FunctionDecl(FunctionDecl),
+    Return(Expr),
+}
+
+#[derive(Clone)]
+pub struct FuncObject {
+    pub(crate) name: Option<Identifier>,
+    pub(crate) params: Vec<Identifier>,
+    pub(crate) body: Vec<Stmt>,
+    pub(crate) closure: Env,
+}
+
+impl FuncObject {
+    pub fn new(name: Identifier, params: Vec<Identifier>, body: Vec<Stmt>, closure: Env) -> Self {
+        Self {
+            name: Some(name),
+            params,
+            body,
+            closure,
+        }
+    }
+
+    pub fn new_lambda(params: Vec<Identifier>, body: Vec<Stmt>, closure: Env) -> Self {
+        Self {
+            name: None,
+            params,
+            body,
+            closure,
+        }
+    }
+}
+
+impl PartialEq for FuncObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.params == other.params && self.body == other.body
+    }
+}
+
+impl Debug for FuncObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FuncInner")
+            .field("name", &self.name)
+            .field("params", &self.params)
+            .field("body", &self.body)
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Object {
+    Nil,
+    Int(i64),
+    Float(f64),
+    Boolean(bool),
+    String(String),
+    FuncObject(FuncObject),
+}
+
+impl Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Nil => write!(f, "nil"),
-            Expr::Int(i) => write!(f, "{}", i),
-            Expr::Float(fl) => write!(f, "{}", fl),
-            Expr::Boolean(b) => write!(f, "{}", b),
-            Expr::Ident(s) => write!(f, "{}", s),
-            Expr::String(s) => write!(f, r#""{}""#, s),
-            Expr::Unary(uop, e) => write!(f, "({} {})", uop, e),
-            Expr::Binary(bop, e1, e2) => write!(f, "({} {} {})", bop, e1, e2),
-            Expr::Assign(ident, e) => write!(f, "(= {} {})", ident, e),
-            Expr::Logical(bop, e1, e2) => write!(f, "({} {} {})", bop, e1, e2),
-            Expr::Call(_callee, _args) => todo!(),
-            Expr::Lambda(_args, _l) => todo!(),
+            Object::Nil => write!(f, "nil"),
+            Object::Int(i) => write!(f, "{}", *i),
+            Object::Float(fl) => write!(f, "{}", *fl),
+            Object::Boolean(b) => write!(f, "{}", *b),
+            Object::String(s) => write!(f, "\"{}\"", s),
+            Object::FuncObject(_) => todo!(),
+        }
+    }
+}
+
+impl Object {
+    pub fn is_truth(&self) -> bool {
+        use Object::*;
+        match self {
+            Nil | Boolean(false) | Int(0) => false,
+            _ => true,
         }
     }
 }

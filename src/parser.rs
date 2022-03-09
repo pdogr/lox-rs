@@ -94,16 +94,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             vec![]
         };
 
-        Ok(Stmt::Function {
+        Ok(Stmt::FunctionDecl(FunctionDecl {
             name,
             params,
             body: stmts,
-        })
+        }))
     }
 
-    fn identifier(&mut self) -> Result<String> {
+    fn identifier(&mut self) -> Result<Identifier> {
         match self.next()? {
-            TokenType::Ident(id) => Ok(id),
+            TokenType::Ident(id) => Ok(id.into()),
             x => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected identifier, got {}",
@@ -113,7 +113,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }
     }
 
-    fn parameters(&mut self) -> Result<Vec<String>> {
+    fn parameters(&mut self) -> Result<Vec<Identifier>> {
         let mut params = vec![self.identifier()?];
         while let Some(tok) = self.i.peek() {
             match *tok {
@@ -129,7 +129,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn var_decl(&mut self) -> ParseStmtResult {
         self.expect(TokenType::Var, "expected var keyword in var declaration")?;
-        let ident = self.identifier()?;
+        let name = self.identifier()?;
 
         let ast = if self.peek_expect(TokenType::Eq) {
             self.next()?;
@@ -143,10 +143,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::SemiColon,
             "declaration should be terminated by ;",
         )?;
-        Ok(Stmt::Decl {
-            ident,
+        Ok(Stmt::VariableDecl(VariableDecl {
+            name,
             definition: ast,
-        })
+        }))
     }
 
     fn statement(&mut self) -> ParseStmtResult {
@@ -217,10 +217,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         } else {
             body
         };
-        block.push(Stmt::Loop {
+        block.push(Stmt::Loop(Loop {
             cond,
             body: Box::new(loop_body),
-        });
+        }));
 
         Ok(Stmt::Block(block))
     }
@@ -243,11 +243,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         } else {
             None
         };
-        Ok(Stmt::Cond {
+        Ok(Stmt::Conditional(Conditional {
             cond,
             if_branch: Box::new(if_branch),
             else_branch,
-        })
+        }))
     }
 
     fn print_stmt(&mut self) -> ParseStmtResult {
@@ -277,17 +277,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::SemiColon,
             "expected ; at the end of return statement",
         )?;
-        Ok(Stmt::Return { value })
+        Ok(Stmt::Return(value))
     }
 
     fn while_stmt(&mut self) -> ParseStmtResult {
         self.expect(TokenType::While, "while loop must begin with while keyword")?;
         let cond = self.expression()?;
         let body = self.statement()?;
-        Ok(Stmt::Loop {
+        Ok(Stmt::Loop(Loop {
             cond,
             body: Box::new(body),
-        })
+        }))
     }
 
     fn block(&mut self) -> ParseStmtResult {
@@ -455,13 +455,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(callee)
     }
 
-    fn arguments(&mut self) -> Result<Vec<Expr>> {
-        let mut args = vec![self.expression()?];
+    fn arguments(&mut self) -> Result<Arguments> {
+        let mut args = vec![self.expression()?.into()];
         while let Some(tok) = self.i.peek() {
             match *tok {
                 TokenType::Comma => {
                     self.next()?;
-                    args.push(self.expression()?);
+                    args.push(self.expression()?.into());
                 }
                 _ => break,
             }
@@ -525,7 +525,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Expr::Lambda(params, stmts)
             }
-            TokenType::Ident(id) => Expr::Ident(id),
+            TokenType::Ident(id) => Expr::Ident(id.into()),
             _ => unreachable!(),
         })
     }
@@ -551,24 +551,6 @@ mod tests {
                     .expect("parsing error");
 
                 assert_eq!(ast, $tt);
-            }
-        };
-    }
-
-    #[allow(unused_macros)]
-    macro_rules! test_fmt {
-        ($name: ident,$input: literal,$tt: expr) => {
-            #[test]
-            fn $name() {
-                let input = $input;
-                let lexer = Lexer::new(input.chars()).unwrap();
-                let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
-                let tokens = tokens.expect("lexing error");
-                let ast = Parser::new(tokens.into_iter())
-                    .expression()
-                    .expect("parsing error");
-
-                assert_eq!(ast.to_string(), $tt);
             }
         };
     }
@@ -643,15 +625,9 @@ mod tests {
     test_parse!(
         parse_lambda,
         "fun (a){print a;}",
-        Expr::Lambda(vec!["a".into()], vec![Stmt::Print(Expr::Ident("a".into()))])
-    );
-
-    test_fmt!(mix_expr, "-(-1+2) >=3", "(>= (- (+ (- 1) 2)) 3)");
-    test_fmt!(assign_expr, "a=10+23", "(= a (+ 10 23))");
-    test_fmt!(assign_multiple, "a=b=10+c", "(= a (= b (+ 10 c)))");
-    test_fmt!(
-        logical_expr,
-        "(a and b or c or d)",
-        "(or (or (and a b) c) d)"
+        Expr::Lambda(
+            vec!["a".to_string().into()],
+            vec![Stmt::Print(Expr::Ident("a".to_string().into()))]
+        )
     );
 }

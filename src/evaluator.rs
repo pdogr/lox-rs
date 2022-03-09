@@ -2,13 +2,10 @@ use std::io::Write;
 use std::rc::Rc;
 
 use crate::anyhow;
-use crate::ast::BinaryOp;
-use crate::ast::Expr;
-use crate::ast::UnaryOp;
+use crate::ast::*;
 use crate::callable::Callable;
 use crate::Env;
 use crate::ErrorOrCtxJmp;
-use crate::FuncInner;
 use crate::Interpreter;
 use crate::Object;
 use crate::Result;
@@ -131,11 +128,11 @@ impl Evaluator {
                 let callee = Evaluator::evaluate(*callee, Rc::clone(&env), interpreter)?;
                 let evaluated_args: Vec<Object> = args
                     .into_iter()
-                    .map(|arg| Evaluator::evaluate(arg, Rc::clone(&env), interpreter))
+                    .map(|arg| Evaluator::evaluate(arg.into(), Rc::clone(&env), interpreter))
                     .collect::<Result<Vec<_>>>()?;
                 callee.call(evaluated_args, interpreter)?
             }
-            Expr::Lambda(params, body) => Object::Func(FuncInner::new_lambda(
+            Expr::Lambda(params, body) => Object::FuncObject(crate::FuncObject::new_lambda(
                 params.clone(),
                 body.clone(),
                 interpreter.env.clone(),

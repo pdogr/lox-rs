@@ -20,3 +20,4 @@ name="integration_tests"
 [profile.release]
 codegen-units = 1
 lto = "on"
+

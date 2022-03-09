@@ -7,6 +7,7 @@ use anyhow::anyhow;
 use thiserror::Error;
 
 mod ast;
+use ast::*;
 
 mod callable;
 
@@ -39,14 +40,7 @@ pub use interpreter::Interpreter;
 
 mod lexer;
 
-mod object;
-use object::FuncInner;
-use object::Object;
-
 mod parser;
-
-mod stmt;
-use stmt::Stmt;
 
 mod token;
 use token::Token;

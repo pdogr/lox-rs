@@ -20,6 +20,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
             input: input.peekmore(),
             lineno: 0,
         };
+
         Ok(lexer)
     }
 

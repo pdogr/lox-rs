@@ -2,9 +2,9 @@ use std::io::Write;
 
 use crate::anyhow;
 
+use crate::ast::*;
 use crate::ErrorOrCtxJmp;
 use crate::EvalResult;
-use crate::FuncInner;
 use crate::Interpreter;
 use crate::Object;
 use crate::Result;
@@ -13,7 +13,7 @@ pub(crate) trait Arity {
     fn arity(&self) -> Result<usize>;
 }
 
-impl Arity for FuncInner {
+impl Arity for FuncObject {
     fn arity(&self) -> Result<usize> {
         Ok(self.params.len())
     }
@@ -22,7 +22,7 @@ impl Arity for FuncInner {
 impl Arity for Object {
     fn arity(&self) -> Result<usize> {
         match self {
-            Object::Func(f) => f.arity(),
+            Object::FuncObject(f) => f.arity(),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected function got {}",
@@ -37,7 +37,7 @@ pub(crate) trait Callable<W>: Arity {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult;
 }
 
-impl<W: Write> Callable<W> for FuncInner {
+impl<W: Write> Callable<W> for FuncObject {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         if args.len() != self.params.len() {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
@@ -77,7 +77,7 @@ impl<W: Write> Callable<W> for FuncInner {
 impl<W: Write> Callable<W> for Object {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         match self {
-            Object::Func(f) => f.call(args, ctx),
+            Object::FuncObject(f) => f.call(args, ctx),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected function got {}",
