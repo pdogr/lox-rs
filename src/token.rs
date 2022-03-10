@@ -1,6 +1,4 @@
-use std::fmt::Display;
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub enum TokenType {
     // Single char tokens
     LeftParen,
@@ -26,9 +24,9 @@ pub enum TokenType {
     Le,
 
     // Literals
-    Str(String),
-    Numeric(String),
-    Ident(String),
+    Str,
+    Numeric,
+    Ident,
     True,
     False,
 
@@ -47,52 +45,69 @@ pub enum TokenType {
     This,
     Var,
     While,
+
+    // Eof
+    Eof,
 }
 
-pub type Token = TokenType;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token {
+    pub(crate) ty: TokenType,
+    pub(crate) lexeme: String,
+}
 
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Token {
+    pub fn new(ty: TokenType) -> Self {
         use TokenType::*;
-        match self {
-            LeftParen => write!(f, "("),
-            RightParen => write!(f, ")"),
-            LeftBrace => write!(f, "{{"),
-            RightBrace => write!(f, "}}"),
-            Dot => write!(f, "."),
-            Comma => write!(f, ","),
-            Plus => write!(f, "+"),
-            Minus => write!(f, "-"),
-            SemiColon => write!(f, ";"),
-            ForwardSlash => write!(f, "/"),
-            Star => write!(f, "*"),
-            Not => write!(f, "!"),
-            Ne => write!(f, "!="),
-            Eq => write!(f, "="),
-            Deq => write!(f, "=="),
-            Gt => write!(f, ">"),
-            Ge => write!(f, ">="),
-            Lt => write!(f, "<"),
-            Le => write!(f, "<="),
-            Str(s) => write!(f, "\"{}\"", s),
-            Numeric(num) => write!(f, "{}", num),
-            Ident(id) => write!(f, "{}", id),
-            True => write!(f, "true"),
-            False => write!(f, "false"),
-            And => write!(f, "&&"),
-            Class => write!(f, "class"),
-            Else => write!(f, "else"),
-            For => write!(f, "for"),
-            Fun => write!(f, "fn"),
-            If => write!(f, "if"),
-            Nil => write!(f, "nil"),
-            Or => write!(f, "or"),
-            Print => write!(f, "print"),
-            Return => write!(f, "return"),
-            Super => write!(f, "super"),
-            This => write!(f, "this"),
-            Var => write!(f, "var"),
-            While => write!(f, "while"),
+        let lexeme = match ty {
+            LeftParen => "(",
+            RightParen => ")",
+            LeftBrace => "{{",
+            RightBrace => "}}",
+            Dot => ".",
+            Comma => ",",
+            Plus => "+",
+            Minus => "-",
+            SemiColon => ";",
+            ForwardSlash => "/",
+            Star => "*",
+            Not => "!",
+            Ne => "!=",
+            Eq => "=",
+            Deq => "==",
+            Gt => ">",
+            Ge => ">=",
+            Lt => "<",
+            Le => "<=",
+            True => "true",
+            False => "false",
+            And => "and",
+            Class => "class",
+            Else => "else",
+            For => "for",
+            Fun => "fn",
+            If => "if",
+            Nil => "nil",
+            Or => "or",
+            Print => "print",
+            Return => "return",
+            Super => "super",
+            This => "this",
+            Var => "var",
+            While => "while",
+            Eof => "<eof>",
+            _ => unreachable!(),
+        };
+        Self {
+            ty,
+            lexeme: lexeme.into(),
+        }
+    }
+
+    pub fn new_with_lexeme(ty: TokenType, lexeme: &str) -> Self {
+        Self {
+            ty,
+            lexeme: lexeme.into(),
         }
     }
 }

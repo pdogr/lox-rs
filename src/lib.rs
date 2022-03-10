@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::stdout;
+use std::io::Write;
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -39,8 +41,10 @@ mod interpreter;
 pub use interpreter::Interpreter;
 
 mod lexer;
+pub use lexer::Lexer;
 
 mod parser;
+pub use parser::Parser;
 
 mod token;
 use token::Token;
@@ -49,6 +53,9 @@ use token::TokenType;
 extern crate peekmore;
 use peekmore::PeekMore;
 use peekmore::PeekMoreIterator;
+
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
@@ -78,6 +85,43 @@ lazy_static! {
     };
 }
 
+pub fn prompt() -> Result<()> {
+    let mut interpreter = Interpreter::new(stdout());
+    let mut rl = Editor::<()>::new();
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
+    }
+    loop {
+        match rl.readline("> ") {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                match runline(line, &mut interpreter) {
+                    Err(e) => {
+                        println!("Error in repl: {}", e);
+                        continue;
+                    }
+                    _ => continue,
+                }
+            }
+            Err(ReadlineError::Eof | ReadlineError::Interrupted) => break,
+            Err(e) => {
+                println!("Error in repl: {}", e);
+                continue;
+            }
+        }
+    }
+    rl.save_history("history.txt").unwrap();
+    Ok(())
+}
+
+fn runline<W: Write>(line: String, interpreter: &mut Interpreter<W>) -> Result<()> {
+    let lexer = Lexer::new(line.chars()).unwrap();
+    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+    let tokens = tokens?;
+    let stmts = Parser::new(tokens.into_iter()).program()?;
+    interpreter.run_many(stmts)
+}
+
 #[derive(Debug, Error)]
 pub enum ErrorOrCtxJmp {
     #[error("{0}")]
@@ -87,7 +131,7 @@ pub enum ErrorOrCtxJmp {
     RetJump { object: Object },
 }
 
-type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;
+pub type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;
 
 #[cfg(test)]
 mod test_utils {

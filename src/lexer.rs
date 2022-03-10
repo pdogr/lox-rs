@@ -85,56 +85,52 @@ impl<I: Iterator<Item = char>> Lexer<I> {
         }
         taken
     }
-}
 
-impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
-    type Item = Result<Token>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_token(&mut self) -> Result<Token> {
         use TokenType::*;
         loop {
             match self.input.next() {
                 Some(c) => match c {
-                    '(' => return Some(Ok(LeftParen)),
-                    ')' => return Some(Ok(RightParen)),
-                    '{' => return Some(Ok(LeftBrace)),
-                    '}' => return Some(Ok(RightBrace)),
-                    '.' => return Some(Ok(Dot)),
-                    ',' => return Some(Ok(Comma)),
-                    '+' => return Some(Ok(Plus)),
-                    '-' => return Some(Ok(Minus)),
-                    ';' => return Some(Ok(SemiColon)),
-                    '*' => return Some(Ok(Star)),
+                    '(' => return Ok(Token::new(LeftParen)),
+                    ')' => return Ok(Token::new(RightParen)),
+                    '{' => return Ok(Token::new(LeftBrace)),
+                    '}' => return Ok(Token::new(RightBrace)),
+                    '.' => return Ok(Token::new(Dot)),
+                    ',' => return Ok(Token::new(Comma)),
+                    '+' => return Ok(Token::new(Plus)),
+                    '-' => return Ok(Token::new(Minus)),
+                    ';' => return Ok(Token::new(SemiColon)),
+                    '*' => return Ok(Token::new(Star)),
                     '/' => match self.match_next('/') {
                         true => {
                             self.skip_while(|c| c != '\n');
                             continue;
                         }
-                        false => return Some(Ok(ForwardSlash)),
+                        false => return Ok(Token::new(ForwardSlash)),
                     },
                     '!' => {
-                        return match self.match_next('=') {
-                            true => Some(Ok(Ne)),
-                            false => Some(Ok(Not)),
-                        }
+                        return Ok(match self.match_next('=') {
+                            true => Token::new(Ne),
+                            false => Token::new(Not),
+                        })
                     }
                     '=' => {
-                        return match self.match_next('=') {
-                            true => Some(Ok(Deq)),
-                            false => Some(Ok(Eq)),
-                        }
+                        return Ok(match self.match_next('=') {
+                            true => Token::new(Deq),
+                            false => Token::new(Eq),
+                        })
                     }
                     '<' => {
-                        return match self.match_next('=') {
-                            true => Some(Ok(Le)),
-                            false => Some(Ok(Lt)),
-                        }
+                        return Ok(match self.match_next('=') {
+                            true => Token::new(Le),
+                            false => Token::new(Lt),
+                        })
                     }
                     '>' => {
-                        return match self.match_next('=') {
-                            true => Some(Ok(Ge)),
-                            false => Some(Ok(Gt)),
-                        }
+                        return Ok(match self.match_next('=') {
+                            true => Token::new(Ge),
+                            false => Token::new(Gt),
+                        })
                     }
                     ' ' | '\r' | '\t' => {
                         continue;
@@ -146,12 +142,12 @@ impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
                     '"' => {
                         let literal: String = self.take_while(|c| c != '"').into_iter().collect();
                         if !self.match_nth(0, |c| c == '"') {
-                            return Some(Err(ErrorOrCtxJmp::Error(anyhow!(
+                            return Err(ErrorOrCtxJmp::Error(anyhow!(
                                 "string literal unterminated"
-                            ))));
+                            )));
                         }
                         self.skip(1);
-                        return Some(Ok(Str(literal)));
+                        return Ok(Token::new_with_lexeme(Str, &literal));
                     }
                     d if d.is_ascii_digit() => {
                         let mut number = vec![c];
@@ -163,20 +159,30 @@ impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
                             number.extend(self.take_while(|c| c.is_ascii_digit()));
                         }
                         let numeric: String = number.into_iter().collect();
-                        return Some(Ok(Numeric(numeric)));
+                        return Ok(Token::new_with_lexeme(Numeric, &numeric));
                     }
                     a if a.is_ascii_alphanumeric() => {
                         let mut identifier = vec![a];
                         identifier.extend(self.take_while(|c| c.is_ascii_alphanumeric()));
-                        let identifier = identifier.into_iter().collect();
-                        return Some(Ok(KEYWORDS
-                            .get(&identifier as &str)
-                            .map_or_else(|| Ident(identifier), |ttype| ttype.clone())));
+                        let identifier: String = identifier.into_iter().collect();
+                        let ty = KEYWORDS.get(&identifier as &str).unwrap_or(&Ident);
+                        return Ok(Token::new_with_lexeme(*ty, &identifier));
                     }
-                    _ => return None,
+                    _ => return Err(ErrorOrCtxJmp::Error(anyhow!("unable to lex"))),
                 },
-                None => return None,
+                None => return Ok(Token::new(Eof)),
             };
+        }
+    }
+}
+
+impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
+    type Item = Result<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next_token() {
+            Ok(tok) if tok.ty == TokenType::Eof => None,
+            x => Some(x),
         }
     }
 }
@@ -226,116 +232,129 @@ mod tests {
     test_lexer_ok!(
         ignores_whitespace,
         "\r\r\t\t\t  ;   \t\t\t\n \n . + \r",
-        SemiColon,
-        Dot,
-        Plus
+        Token::new(SemiColon),
+        Token::new(Dot),
+        Token::new(Plus)
     );
 
     test_lexer_ok!(
         single_char_tokens,
         ";> = < , { () } +-*/",
-        SemiColon,
-        Gt,
-        Eq,
-        Lt,
-        Comma,
-        LeftBrace,
-        LeftParen,
-        RightParen,
-        RightBrace,
-        Plus,
-        Minus,
-        Star,
-        ForwardSlash,
+        Token::new(SemiColon),
+        Token::new(Gt),
+        Token::new(Eq),
+        Token::new(Lt),
+        Token::new(Comma),
+        Token::new(LeftBrace),
+        Token::new(LeftParen),
+        Token::new(RightParen),
+        Token::new(RightBrace),
+        Token::new(Plus),
+        Token::new(Minus),
+        Token::new(Star),
+        Token::new(ForwardSlash)
     );
 
-    test_lexer_ok!(double_char_tokens, "== >= <= !=", Deq, Ge, Le, Ne,);
+    test_lexer_ok!(
+        double_char_tokens,
+        "== >= <= !=",
+        Token::new(Deq),
+        Token::new(Ge),
+        Token::new(Le),
+        Token::new(Ne)
+    );
 
     test_lexer_ok!(
         single_double_char_tokens,
         "==;.((}{))+/.",
-        Deq,
-        SemiColon,
-        Dot,
-        LeftParen,
-        LeftParen,
-        RightBrace,
-        LeftBrace,
-        RightParen,
-        RightParen,
-        Plus,
-        ForwardSlash,
-        Dot,
+        Token::new(Deq),
+        Token::new(SemiColon),
+        Token::new(Dot),
+        Token::new(LeftParen),
+        Token::new(LeftParen),
+        Token::new(RightBrace),
+        Token::new(LeftBrace),
+        Token::new(RightParen),
+        Token::new(RightParen),
+        Token::new(Plus),
+        Token::new(ForwardSlash),
+        Token::new(Dot)
     );
 
     test_lexer_ok!(
         ignore_single_line_comment,
         "//Comment to be ignored.\n {}",
-        LeftBrace,
-        RightBrace,
+        Token::new(LeftBrace),
+        Token::new(RightBrace)
     );
 
     test_lexer_ok!(
         literal_str,
         "\"This is a string followed by a semi-colon.\";",
-        Str("This is a string followed by a semi-colon.".to_string()),
-        SemiColon,
+        Token::new_with_lexeme(Str, "This is a string followed by a semi-colon."),
+        Token::new(SemiColon)
     );
 
     test_lexer_ok!(
         literal_int,
         "12 + 345; ",
-        Numeric("12".into()),
-        Plus,
-        Numeric("345".into()),
-        SemiColon,
+        Token::new_with_lexeme(Numeric, "12"),
+        Token::new(Plus),
+        Token::new_with_lexeme(Numeric, "345"),
+        Token::new(SemiColon)
     );
 
     test_lexer_ok!(
         literal_float,
         "12.123123 + 345 ",
-        Numeric("12.123123".into()),
-        Plus,
-        Numeric("345".into()),
+        Token::new_with_lexeme(Numeric, "12.123123"),
+        Token::new(Plus),
+        Token::new_with_lexeme(Numeric, "345"),
     );
 
     test_lexer_ok!(
         lex_assignment,
         "a = 52;",
-        Ident("a".into()),
-        Eq,
-        Numeric("52".into()),
-        SemiColon,
+        Token::new_with_lexeme(Ident, "a"),
+        Token::new(Eq),
+        Token::new_with_lexeme(Numeric, "52"),
+        Token::new(SemiColon)
     );
 
     test_lexer_ok!(
         lex_keywords,
         "if (a=10) { return 1; }",
-        If,
-        LeftParen,
-        Ident("a".into()),
-        Eq,
-        Numeric("10".into()),
-        RightParen,
-        LeftBrace,
-        Return,
-        Numeric("1".into()),
-        SemiColon,
-        RightBrace,
+        Token::new(If),
+        Token::new(LeftParen),
+        Token::new_with_lexeme(Ident, "a"),
+        Token::new(Eq),
+        Token::new_with_lexeme(Numeric, "10"),
+        Token::new(RightParen),
+        Token::new(LeftBrace),
+        Token::new(Return),
+        Token::new_with_lexeme(Numeric, "1"),
+        Token::new(SemiColon),
+        Token::new(RightBrace)
     );
 
-    test_lexer_ok!(variable_decl, "var a;", Var, Ident("a".into()), SemiColon,);
+    test_lexer_ok!(
+        variable_decl,
+        "var a;",
+        Token::new_with_lexeme(Var, "var"),
+        Token::new_with_lexeme(Ident, "a"),
+        Token::new(SemiColon)
+    );
 
     test_lexer_ok!(
         logical_op,
         "(1 or 2 and 3)",
-        LeftParen,
-        Numeric("1".into()),
-        Or,
-        Numeric("2".into()),
-        And,
-        Numeric("3".into()),
-        RightParen
+        Token::new(LeftParen),
+        Token::new_with_lexeme(Numeric, "1"),
+        Token::new(Or),
+        Token::new_with_lexeme(Numeric, "2"),
+        Token::new(And),
+        Token::new_with_lexeme(Numeric, "3"),
+        Token::new(RightParen)
     );
 
     test_lexer_err!(

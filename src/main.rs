@@ -1,9 +1,6 @@
-use anyhow::Result;
-
-fn run_file(_path: &str) -> Result<()> {
-    Ok(())
-}
+use jlox_rs::prompt;
+use jlox_rs::Result;
 
 fn main() -> Result<()> {
-    Ok(())
+    prompt()
 }

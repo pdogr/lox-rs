@@ -56,8 +56,8 @@ impl Display for BinaryOp {
     }
 }
 
-impl From<&TokenType> for BinaryOp {
-    fn from(ttype: &TokenType) -> Self {
+impl From<TokenType> for BinaryOp {
+    fn from(ttype: TokenType) -> Self {
         use TokenType::*;
         match ttype {
             Plus => BinaryOp::Add,
@@ -103,9 +103,9 @@ impl From<Expr> for Argument {
     }
 }
 
-impl Into<Expr> for Argument {
-    fn into(self) -> Expr {
-        self.value
+impl From<Argument> for Expr {
+    fn from(a: Argument) -> Self {
+        a.value
     }
 }
 
@@ -216,7 +216,7 @@ pub enum Object {
     Float(f64),
     Boolean(bool),
     String(String),
-    FuncObject(FuncObject),
+    Function(FuncObject),
 }
 
 impl Display for Object {
@@ -227,7 +227,7 @@ impl Display for Object {
             Object::Float(fl) => write!(f, "{}", *fl),
             Object::Boolean(b) => write!(f, "{}", *b),
             Object::String(s) => write!(f, "\"{}\"", s),
-            Object::FuncObject(_) => todo!(),
+            Object::Function(_) => todo!(),
         }
     }
 }
@@ -235,9 +235,6 @@ impl Display for Object {
 impl Object {
     pub fn is_truth(&self) -> bool {
         use Object::*;
-        match self {
-            Nil | Boolean(false) | Int(0) => false,
-            _ => true,
-        }
+        !matches!(self, Nil | Boolean(false) | Int(0))
     }
 }

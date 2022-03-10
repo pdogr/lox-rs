@@ -20,22 +20,22 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Self { i: i.peekable() }
     }
 
-    pub fn next(&mut self) -> Result<Token> {
+    pub fn next_token(&mut self) -> Result<Token> {
         match self.i.next() {
             Some(t) => Ok(t),
             None => return Err(ErrorOrCtxJmp::Error(anyhow!("missing token"))),
         }
     }
 
-    fn expect(&mut self, expected: Token, err: &str) -> Result<()> {
+    fn expect(&mut self, expected: TokenType, err: &str) -> Result<()> {
         match self.i.peek() {
-            Some(actual) if *actual == expected => {
+            Some(actual) if actual.ty == expected => {
                 self.i.next();
                 Ok(())
             }
             Some(actual) => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected token {} got token {}, {}",
+                    "expected token {:?} got token {:?}, {}",
                     expected,
                     actual,
                     err
@@ -44,7 +44,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
             None => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "missing token, expected token {}, {}",
+                    "missing token, expected token {:?}, {}",
                     expected,
                     err
                 )))
@@ -52,11 +52,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }
     }
 
-    fn peek_expect(&mut self, expected: Token) -> bool {
-        match self.i.peek() {
-            Some(actual) if *actual == expected => true,
-            _ => false,
-        }
+    fn peek_expect(&mut self, expected: TokenType) -> bool {
+        matches!(
+            self.i.peek(),
+            Some(actual) if actual.ty == expected
+        )
     }
 
     pub fn program(&mut self) -> Result<Vec<Stmt>> {
@@ -69,8 +69,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn declaration(&mut self) -> ParseStmtResult {
         match self.i.peek() {
-            Some(TokenType::Var) => self.var_decl(),
-            Some(TokenType::Fun) => self.fun_decl(),
+            Some(t) if t.ty == TokenType::Var => self.var_decl(),
+            Some(t) if t.ty == TokenType::Fun => self.fun_decl(),
             _ => self.statement(),
         }
     }
@@ -102,11 +102,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn identifier(&mut self) -> Result<Identifier> {
-        match self.next()? {
-            TokenType::Ident(id) => Ok(id.into()),
+        match self.next_token()? {
+            t if t.ty == TokenType::Ident => Ok(t.lexeme.into()),
             x => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected identifier, got {}",
+                    "expected identifier, got {:?}",
                     x
                 )))
             }
@@ -116,9 +116,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn parameters(&mut self) -> Result<Vec<Identifier>> {
         let mut params = vec![self.identifier()?];
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Comma => {
-                    self.next()?;
+                    self.next_token()?;
                     params.push(self.identifier()?);
                 }
                 _ => break,
@@ -132,7 +132,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let name = self.identifier()?;
 
         let ast = if self.peek_expect(TokenType::Eq) {
-            self.next()?;
+            self.next_token()?;
             let ast = self.expression()?;
             Some(ast)
         } else {
@@ -151,13 +151,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn statement(&mut self) -> ParseStmtResult {
         match self.i.peek() {
-            Some(TokenType::Print) => self.print_stmt(),
-            Some(TokenType::LeftBrace) => self.block(),
-            Some(TokenType::If) => self.if_stmt(),
-            Some(TokenType::Return) => self.return_stmt(),
-            Some(TokenType::While) => self.while_stmt(),
-            Some(TokenType::For) => self.for_stmt(),
-            Some(_) => self.expr_stmt(),
+            Some(tok) => match tok.ty {
+                TokenType::Print => self.print_stmt(),
+                TokenType::LeftBrace => self.block(),
+                TokenType::If => self.if_stmt(),
+                TokenType::Return => self.return_stmt(),
+                TokenType::While => self.while_stmt(),
+                TokenType::For => self.for_stmt(),
+                _ => self.expr_stmt(),
+            },
             None => unreachable!(),
         }
     }
@@ -174,14 +176,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         let mut block = Vec::new();
 
         let initializer = match self.i.peek() {
-            Some(TokenType::SemiColon) => {
+            Some(tok) if tok.ty == TokenType::SemiColon => {
                 self.expect(
                     TokenType::SemiColon,
                     "initalizer in a for loop must be terminated by ;",
                 )?;
                 None
             }
-            Some(TokenType::Var) => Some(self.var_decl()?),
+            Some(tok) if tok.ty == TokenType::Var => Some(self.var_decl()?),
             _ => Some(self.expr_stmt()?),
         };
 
@@ -238,7 +240,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         )?;
         let if_branch = self.statement()?;
         let else_branch = if self.peek_expect(TokenType::Else) {
-            self.next()?;
+            self.next_token()?;
             Some(Box::new(self.statement()?))
         } else {
             None
@@ -325,9 +327,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn logic_or(&mut self) -> ParseResult {
         let mut ast = self.logic_and()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Or => {
-                    self.next()?;
+                    self.next_token()?;
                     let inner = self.logic_and()?;
                     ast = Expr::Logical(BinaryOp::Or, Box::new(ast), Box::new(inner));
                 }
@@ -340,9 +342,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn logic_and(&mut self) -> ParseResult {
         let mut ast = self.equality()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::And => {
-                    self.next()?;
+                    self.next_token()?;
                     let inner = self.equality()?;
                     ast = Expr::Logical(BinaryOp::And, Box::new(ast), Box::new(inner));
                 }
@@ -355,10 +357,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn equality(&mut self) -> ParseResult {
         let mut ast = self.comparison()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Ne | TokenType::Deq => {
-                    let bop: BinaryOp = tok.into();
-                    self.next()?;
+                    let bop: BinaryOp = tok.ty.into();
+                    self.next_token()?;
                     let inner = self.comparison()?;
                     ast = Expr::Binary(bop, Box::new(ast), Box::new(inner))
                 }
@@ -371,10 +373,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn comparison(&mut self) -> ParseResult {
         let mut ast = self.term()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Lt | TokenType::Gt | TokenType::Le | TokenType::Ge => {
-                    let bop: BinaryOp = tok.into();
-                    self.next()?;
+                    let bop: BinaryOp = tok.ty.into();
+                    self.next_token()?;
                     let inner = self.term()?;
                     ast = Expr::Binary(bop, Box::new(ast), Box::new(inner))
                 }
@@ -387,10 +389,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn term(&mut self) -> ParseResult {
         let mut ast = self.factor()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Plus | TokenType::Minus => {
-                    let bop: BinaryOp = tok.into();
-                    self.next()?;
+                    let bop: BinaryOp = tok.ty.into();
+                    self.next_token()?;
                     let inner = self.factor()?;
                     ast = Expr::Binary(bop, Box::new(ast), Box::new(inner))
                 }
@@ -403,10 +405,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn factor(&mut self) -> ParseResult {
         let mut ast = self.unary()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Star | TokenType::ForwardSlash => {
-                    let bop: BinaryOp = tok.into();
-                    self.next()?;
+                    let bop: BinaryOp = tok.ty.into();
+                    self.next_token()?;
                     let inner = self.unary()?;
                     ast = Expr::Binary(bop, Box::new(ast), Box::new(inner))
                 }
@@ -418,13 +420,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn unary(&mut self) -> ParseResult {
         match self.i.peek() {
-            Some(tok) if (*tok == TokenType::Not || *tok == TokenType::Minus) => {
-                let uop = match *tok {
+            Some(tok) if (tok.ty == TokenType::Not || tok.ty == TokenType::Minus) => {
+                let uop = match tok.ty {
                     TokenType::Not => UnaryOp::Not,
                     TokenType::Minus => UnaryOp::Minus,
                     _ => unreachable!(),
                 };
-                self.next()?;
+                self.next_token()?;
                 let ast = self.unary()?;
                 Ok(Expr::Unary(uop, Box::new(ast)))
             }
@@ -435,9 +437,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn call(&mut self) -> ParseResult {
         let mut callee = self.primary()?;
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::LeftParen => {
-                    self.next()?;
+                    self.next_token()?;
                     let args = if self.peek_expect(TokenType::RightParen) {
                         Vec::new()
                     } else {
@@ -458,9 +460,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn arguments(&mut self) -> Result<Arguments> {
         let mut args = vec![self.expression()?.into()];
         while let Some(tok) = self.i.peek() {
-            match *tok {
+            match tok.ty {
                 TokenType::Comma => {
-                    self.next()?;
+                    self.next_token()?;
                     args.push(self.expression()?.into());
                 }
                 _ => break,
@@ -476,17 +478,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn primary(&mut self) -> ParseResult {
-        let next = self.next()?;
-        Ok(match next {
-            TokenType::Str(s) => Expr::String(s),
-            TokenType::Numeric(n) => match n.parse::<i64>() {
+        let next = self.next_token()?;
+        Ok(match next.ty {
+            TokenType::Str => Expr::String(next.lexeme),
+            TokenType::Numeric => match next.lexeme.parse::<i64>() {
                 Ok(i) => Expr::Int(i),
-                Err(_) => match n.parse::<f64>() {
+                Err(_) => match next.lexeme.parse::<f64>() {
                     Ok(f) => Expr::Float(f),
                     Err(e) => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
                             "unable to parse numerical {} as float with error {}",
-                            n,
+                            next.lexeme,
                             e
                         )))
                     }
@@ -525,7 +527,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Expr::Lambda(params, stmts)
             }
-            TokenType::Ident(id) => Expr::Ident(id.into()),
+            TokenType::Ident => Expr::Ident(next.lexeme.into()),
             _ => unreachable!(),
         })
     }

@@ -22,7 +22,7 @@ impl Arity for FuncObject {
 impl Arity for Object {
     fn arity(&self) -> Result<usize> {
         match self {
-            Object::FuncObject(f) => f.arity(),
+            Object::Function(f) => f.arity(),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected function got {}",
@@ -77,7 +77,7 @@ impl<W: Write> Callable<W> for FuncObject {
 impl<W: Write> Callable<W> for Object {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         match self {
-            Object::FuncObject(f) => f.call(args, ctx),
+            Object::Function(f) => f.call(args, ctx),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected function got {}",

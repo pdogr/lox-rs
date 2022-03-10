@@ -14,6 +14,12 @@ pub struct EnvInner {
     pub enclosing: Option<Rc<RefCell<EnvInner>>>,
 }
 
+impl Default for EnvInner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnvInner {
     pub fn new() -> Self {
         Self {
@@ -40,7 +46,7 @@ impl EnvInner {
     }
 
     pub fn get(&self, id: &Identifier) -> Result<Rc<RefCell<Object>>> {
-        EnvInner::_get(&self, id)
+        EnvInner::_get(self, id)
     }
 
     pub fn insert(&mut self, id: Identifier, o: Object) -> Option<Rc<RefCell<Object>>> {

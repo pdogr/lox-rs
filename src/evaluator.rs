@@ -28,7 +28,7 @@ impl Evaluator {
             Expr::Int(i) => Object::Int(i),
             Expr::Float(f) => Object::Float(f),
             Expr::Boolean(b) => Object::Boolean(b),
-            Expr::String(s) => Object::String(s.clone()),
+            Expr::String(s) => Object::String(s),
             Expr::Ident(i) => env.borrow().get(&i)?.borrow().clone(),
             Expr::Unary(uop, expr) => {
                 match (
@@ -91,7 +91,7 @@ impl Evaluator {
                 }
             }
             Expr::Assign(ident, e) => {
-                let ident = if let Expr::Ident(ident) = *ident.clone() {
+                let ident = if let Expr::Ident(ident) = *ident {
                     ident
                 } else {
                     unreachable!()
@@ -132,9 +132,9 @@ impl Evaluator {
                     .collect::<Result<Vec<_>>>()?;
                 callee.call(evaluated_args, interpreter)?
             }
-            Expr::Lambda(params, body) => Object::FuncObject(crate::FuncObject::new_lambda(
-                params.clone(),
-                body.clone(),
+            Expr::Lambda(params, body) => Object::Function(crate::FuncObject::new_lambda(
+                params,
+                body,
                 interpreter.env.clone(),
             )),
         };

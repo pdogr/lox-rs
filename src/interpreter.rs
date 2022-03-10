@@ -77,7 +77,7 @@ impl<W: Write> Interpreter<W> {
                 self.run(*body.clone())?;
             },
             Stmt::FunctionDecl(FunctionDecl { name, params, body }) => {
-                let func = Object::FuncObject(FuncObject::new(
+                let func = Object::Function(FuncObject::new(
                     name.clone(),
                     params,
                     body,
@@ -94,12 +94,10 @@ impl<W: Write> Interpreter<W> {
     }
 
     pub fn run_many(&mut self, stmts: Vec<Stmt>) -> Result<()> {
-        stmts.into_iter().fold(Ok(()), |res, stmt| {
-            if res.is_err() {
-                return res;
-            }
-            self.run(stmt)
-        })
+        for stmt in stmts {
+            self.run(stmt)?;
+        }
+        Ok(())
     }
 
     pub(crate) fn save_env(&mut self, env: Env) {
