@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -18,6 +19,7 @@ pub struct Interpreter<W> {
     pub(crate) writer: W,
     pub(crate) env: Env,
     envs: Vec<Env>,
+    pub(crate) locals: BTreeMap<Identifier, usize>,
 }
 
 impl<W: Write> Interpreter<W> {
@@ -26,6 +28,7 @@ impl<W: Write> Interpreter<W> {
             writer,
             env: new_env(),
             envs: Vec::new(),
+            locals: BTreeMap::new(),
         }
     }
 
@@ -93,6 +96,10 @@ impl<W: Write> Interpreter<W> {
         Ok(())
     }
 
+    pub fn resolve(&mut self, id: Identifier, distance: usize) {
+        self.locals.insert(id, distance);
+    }
+
     pub fn run_many(&mut self, stmts: Vec<Stmt>) -> Result<()> {
         for stmt in stmts {
             self.run(stmt)?;
@@ -129,6 +136,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
     use crate::test_utils::TestWriter;
+    use crate::Resolver;
     use crate::Token;
 
     #[allow(unused_macros)]
@@ -147,6 +155,9 @@ mod tests {
                         .expect("parsing error");
 
                     let mut interpreter = Interpreter::new(fake_stdout.clone());
+                    let mut resolver = Resolver::new(&mut interpreter);
+                    resolver.resolve(&stmts).expect("variable resolution error");
+
                     interpreter.run_many(stmts).expect("interpret error");
                 }
                 assert_eq!(&fake_stdout.into_string(), $tt);
@@ -369,10 +380,9 @@ mod tests {
         "1\n2\n3\n"
     );
 
-    /*
-        test_interpret_ok!(
-            closure_scope,
-            r#"
+    test_interpret_ok!(
+        closure_scope,
+        r#"
             var a = "global";
             {
                 fun showA(){
@@ -383,9 +393,6 @@ mod tests {
                 showA();
             }
             "#,
-            r#"
-    global
-    global"#
-        );
-        */
+        "\"global\"\n\"global\"\n"
+    );
 }

@@ -38,13 +38,16 @@ use evaluator::EvalResult;
 use evaluator::Evaluator;
 
 mod interpreter;
-pub use interpreter::Interpreter;
+use interpreter::Interpreter;
 
 mod lexer;
-pub use lexer::Lexer;
+use lexer::Lexer;
 
 mod parser;
-pub use parser::Parser;
+use parser::Parser;
+
+mod resolver;
+use resolver::Resolver;
 
 mod token;
 use token::Token;
@@ -59,6 +62,9 @@ use rustyline::Editor;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
+
+extern crate uuid;
+use uuid::Uuid;
 
 lazy_static! {
     pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -119,6 +125,8 @@ fn runline<W: Write>(line: String, interpreter: &mut Interpreter<W>) -> Result<(
     let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
     let tokens = tokens?;
     let stmts = Parser::new(tokens.into_iter()).program()?;
+    let mut resolver = Resolver::new(interpreter);
+    resolver.resolve(&stmts)?;
     interpreter.run_many(stmts)
 }
 

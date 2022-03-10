@@ -9,6 +9,7 @@ thiserror = "1.0"
 peekmore = "1.0"
 lazy_static = "1.4.0"
 rustyline = "9.0.0"
+uuid = {version = "0.8.2", features = ["v4"]}
 
 [dev-dependencies]
 regex = "1.5.4"

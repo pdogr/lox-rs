@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum TokenType {
     // Single char tokens
     LeftParen,

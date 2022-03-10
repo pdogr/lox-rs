@@ -10,7 +10,7 @@ use crate::Result;
 
 #[derive(Debug)]
 pub struct EnvInner {
-    values: HashMap<Identifier, Rc<RefCell<Object>>>,
+    values: HashMap<String, Rc<RefCell<Object>>>,
     pub enclosing: Option<Rc<RefCell<EnvInner>>>,
 }
 
@@ -35,21 +35,29 @@ impl EnvInner {
         }
     }
 
-    fn _get(env: &EnvInner, id: &Identifier) -> Result<Rc<RefCell<Object>>> {
-        match env.values.get(id) {
-            Some(val) => Ok(Rc::clone(val)),
-            None => match &env.enclosing {
-                Some(enclosing) => EnvInner::_get(&enclosing.borrow(), id),
-                None => return Err(ErrorOrCtxJmp::Error(anyhow!("undefined variable {}", id))),
+    fn _get(env: &EnvInner, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
+        match up {
+            0 => match env.values.get(&id.ident) {
+                Some(val) => Ok(Rc::clone(val)),
+                None => Err(ErrorOrCtxJmp::Error(anyhow!("undefined variable {}", id))),
+            },
+            _ => match &env.enclosing {
+                Some(enclosing) => EnvInner::_get(&enclosing.borrow(), id, up - 1),
+                None => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "enclosing environment does not exist"
+                    )))
+                }
             },
         }
     }
 
-    pub fn get(&self, id: &Identifier) -> Result<Rc<RefCell<Object>>> {
-        EnvInner::_get(self, id)
+    pub fn get(&self, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
+        EnvInner::_get(self, id, up)
     }
 
     pub fn insert(&mut self, id: Identifier, o: Object) -> Option<Rc<RefCell<Object>>> {
-        self.values.insert(id, Rc::new(RefCell::new(o)))
+        self.values
+            .insert(id.ident, Rc::new(RefCell::new(o)))
     }
 }

@@ -29,7 +29,18 @@ impl Evaluator {
             Expr::Float(f) => Object::Float(f),
             Expr::Boolean(b) => Object::Boolean(b),
             Expr::String(s) => Object::String(s),
-            Expr::Ident(i) => env.borrow().get(&i)?.borrow().clone(),
+            Expr::Ident(ident) => {
+                let distance = match interpreter.locals.get(&ident) {
+                    Some(distance) => distance,
+                    None => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "unable to find variable {} in evn",
+                            ident
+                        )))
+                    }
+                };
+                env.borrow().get(&ident, *distance)?.borrow().clone()
+            }
             Expr::Unary(uop, expr) => {
                 match (
                     uop,
@@ -96,7 +107,16 @@ impl Evaluator {
                 } else {
                     unreachable!()
                 };
-                let old = env.borrow_mut().get(&ident)?;
+                let distance = match interpreter.locals.get(&ident) {
+                    Some(distance) => distance,
+                    None => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "unable to find variable {} in evn",
+                            ident
+                        )))
+                    }
+                };
+                let old = env.borrow_mut().get(&ident, *distance)?;
                 let value = Evaluator::evaluate(*e, Rc::clone(&env), interpreter)?;
                 *old.borrow_mut() = value.clone();
                 value

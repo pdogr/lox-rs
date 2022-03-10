@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use crate::Env;
 use crate::TokenType;
+use crate::Uuid;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum UnaryOp {
@@ -77,18 +78,32 @@ impl From<TokenType> for BinaryOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct Identifier(String);
+#[derive(Debug, Clone, PartialOrd, Ord)]
+pub struct Identifier {
+    pub(crate) ident: String,
+    tag: Uuid,
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.ident == other.ident
+    }
+}
+
+impl Eq for Identifier {}
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.ident)
     }
 }
 
 impl From<String> for Identifier {
     fn from(s: String) -> Self {
-        Self(s)
+        Self {
+            ident: s,
+            tag: Uuid::new_v4(),
+        }
     }
 }
 
@@ -126,6 +141,8 @@ pub enum Expr {
     Call(Box<Expr>, Arguments),
     Lambda(Vec<Identifier>, Vec<Stmt>),
 }
+
+impl Eq for Expr {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableDecl {
