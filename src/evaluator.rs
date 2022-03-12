@@ -183,6 +183,45 @@ impl Evaluator {
                     }
                 }
             }
+            Expr::Super(super_class, method) => {
+                let distance = match interpreter.locals.get(&super_class) {
+                    Some(distance) => distance,
+                    None => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "unable to find super class {} in evn",
+                            super_class
+                        )))
+                    }
+                };
+                let super_class = match env.borrow().get(&super_class, *distance)?.borrow().clone()
+                {
+                    Class(c) => c,
+                    _ => unreachable!(),
+                };
+
+                let object = match env
+                    .borrow()
+                    .get(&"this".to_string().into(), *distance - 1)?
+                    .borrow()
+                    .clone()
+                {
+                    Instance(i) => i,
+                    _ => unreachable!(),
+                };
+
+                let super_class_method = match super_class.find_method(&method.ident as &str) {
+                    Some(m) => m,
+                    None => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "could not find method {} in super class {}",
+                            &method.ident,
+                            &super_class.name
+                        )))
+                    }
+                };
+
+                Object::Function(FuncObject::bind(super_class_method, object))
+            }
         };
         Ok(r)
     }

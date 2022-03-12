@@ -94,12 +94,22 @@ impl<'a, W: Write> Resolver<'a, W> {
 
                 self.resolve_expr(expr)?;
             }
-            Stmt::ClassDecl(ClassDecl { name, methods }) => {
+            Stmt::ClassDecl(ClassDecl {
+                name,
+                super_class,
+                methods,
+            }) => {
                 self.declare(name);
                 self.define(name);
 
                 let enclosing_class = self.current_class;
                 self.current_class = ClassType::Class;
+
+                if let Some(super_class) = super_class {
+                    self.resolve_expr(super_class)?;
+                    self.begin_scope();
+                    self.scopes.last_mut().unwrap().insert("super", true);
+                }
 
                 self.begin_scope();
                 self.scopes.last_mut().unwrap().insert("this", true);
@@ -112,6 +122,10 @@ impl<'a, W: Write> Resolver<'a, W> {
                     self.resolve_function(&method.params, &method.body, declaration)?;
                 }
                 self.end_scope();
+
+                if super_class.is_some() {
+                    self.end_scope();
+                }
 
                 self.current_class = enclosing_class;
             }
@@ -173,6 +187,14 @@ impl<'a, W: Write> Resolver<'a, W> {
                     )));
                 }
                 self.resolve_local(this)?
+            }
+            Expr::Super(super_class, _method) => {
+                if self.current_class == ClassType::None {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "can't use 'super' outside class context"
+                    )));
+                }
+                self.resolve_local(super_class)?;
             }
         }
         Ok(())

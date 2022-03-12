@@ -82,6 +82,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             "expected class to begin class declaration",
         )?;
         let name = self.identifier()?;
+
+        let super_class = if self.peek_expect(TokenType::Lt) {
+            self.next_token()?;
+            Some(Expr::Ident(self.identifier()?))
+        } else {
+            None
+        };
         self.expect(
             TokenType::LeftBrace,
             "class declaration must be followed by '{'",
@@ -118,7 +125,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             "class definition must end with 
             '}'",
         )?;
-        Ok(Stmt::ClassDecl(ClassDecl { name, methods }))
+        Ok(Stmt::ClassDecl(ClassDecl {
+            name,
+            super_class,
+            methods,
+        }))
     }
 
     fn fun_decl(&mut self) -> ParseStmtResult {
@@ -584,6 +595,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             TokenType::Ident => Expr::Ident(next.lexeme.into()),
             TokenType::This => Expr::This("this".to_string().into()),
+            TokenType::Super => {
+                self.expect(TokenType::Dot, "super must be followed by '.'")?;
+                let method = self.identifier()?;
+                Expr::Super("super".to_string().into(), method)
+            }
             _ => unreachable!(),
         })
     }

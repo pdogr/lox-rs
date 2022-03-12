@@ -150,6 +150,7 @@ pub enum Expr {
     Get(Box<Expr>, Identifier),
     Set(Box<Expr>, Identifier, Box<Expr>),
     This(Identifier),
+    Super(Identifier, Identifier),
 }
 
 impl Eq for Expr {}
@@ -183,6 +184,7 @@ pub struct Loop {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDecl {
     pub(crate) name: Identifier,
+    pub(crate) super_class: Option<Expr>,
     pub(crate) methods: Vec<FunctionDecl>,
 }
 
@@ -270,8 +272,9 @@ impl Display for FuncObject {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassObject {
-    name: Identifier,
-    methods: HashMap<String, FuncObject>,
+    pub(crate) name: Identifier,
+    pub(crate) super_class: Option<Box<ClassObject>>,
+    pub(crate) methods: HashMap<String, FuncObject>,
 }
 
 impl Display for ClassObject {
@@ -281,15 +284,28 @@ impl Display for ClassObject {
 }
 
 impl ClassObject {
-    pub fn new(name: Identifier, methods: Vec<(String, FuncObject)>) -> Self {
+    pub fn new(
+        name: Identifier,
+        super_class: Option<Box<ClassObject>>,
+        methods: Vec<(String, FuncObject)>,
+    ) -> Self {
         Self {
             name,
+            super_class,
             methods: methods.into_iter().map(|(id, f)| (id, f)).collect(),
         }
     }
 
     pub fn find_method(&self, property: &str) -> Option<FuncObject> {
-        self.methods.get(property).cloned()
+        if let elt @ Some(_) = self.methods.get(property) {
+            return elt.cloned();
+        }
+
+        if let Some(ref super_class) = self.super_class {
+            super_class.find_method(property)
+        } else {
+            None
+        }
     }
 }
 

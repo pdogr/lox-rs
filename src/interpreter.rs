@@ -93,9 +93,37 @@ impl<W: Write> Interpreter<W> {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
                 return Err(ErrorOrCtxJmp::RetJump { object: value });
             }
-            Stmt::ClassDecl(ClassDecl { name, methods }) => {
+            Stmt::ClassDecl(ClassDecl {
+                name,
+                super_class,
+                methods,
+            }) => {
+                let (super_class, has_super_class) = if let Some(super_class) = super_class {
+                    let sc = Evaluator::evaluate(super_class, Rc::clone(&self.env), self)?;
+                    match sc {
+                        Object::Class(c) => (Some(Box::new(c)), true),
+                        _ => {
+                            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                                "superclass must be a class, found {}",
+                                sc
+                            )))
+                        }
+                    }
+                } else {
+                    (None, false)
+                };
+
+                if let Some(ref sc) = super_class {
+                    self.push_scope();
+                    let scc = *sc.clone();
+                    self.env
+                        .borrow_mut()
+                        .insert("super".to_string().into(), Object::Class(scc));
+                }
+
                 let class = Object::Class(ClassObject::new(
                     name.clone(),
+                    super_class,
                     methods
                         .into_iter()
                         .map(|method| {
@@ -114,6 +142,10 @@ impl<W: Write> Interpreter<W> {
                         })
                         .collect(),
                 ));
+
+                if has_super_class {
+                    self.pop_scope();
+                }
                 self.env.borrow_mut().insert(name, class);
             }
         };
@@ -579,5 +611,38 @@ mod tests {
         print foo.n;
         "#,
         "42\n69\n420\n"
+    );
+
+    test_interpret_ok!(
+        class_inherit,
+        r#"
+        class Doughnut{
+            cook(){
+                print "parent class";
+            }
+        }
+        class Child < Doughnut{}
+        Child().cook();
+        "#,
+        "\"parent class\"\n"
+    );
+
+    test_interpret_ok!(
+        super_class,
+        r#"
+        class Doughnut{
+            cook(){
+                print "super";
+            }
+        }
+        class BostonCream < Doughnut {
+            cook() {
+                super.cook();
+                print "child";
+            }
+        }
+        BostonCream().cook();
+        "#,
+        "\"super\"\n\"child\"\n"
     );
 }
