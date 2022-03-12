@@ -69,10 +69,56 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn declaration(&mut self) -> ParseStmtResult {
         match self.i.peek() {
+            Some(t) if t.ty == TokenType::Class => self.class_decl(),
             Some(t) if t.ty == TokenType::Var => self.var_decl(),
             Some(t) if t.ty == TokenType::Fun => self.fun_decl(),
             _ => self.statement(),
         }
+    }
+
+    fn class_decl(&mut self) -> ParseStmtResult {
+        self.expect(
+            TokenType::Class,
+            "expected class to begin class declaration",
+        )?;
+        let name = self.identifier()?;
+        self.expect(
+            TokenType::LeftBrace,
+            "class declaration must be followed by '{'",
+        )?;
+
+        let mut methods = Vec::new();
+        while !self.peek_expect(TokenType::RightBrace) {
+            let name = self.identifier()?;
+
+            self.expect(TokenType::LeftParen, "expected ( after function name")?;
+            let params = if !self.peek_expect(TokenType::RightParen) {
+                self.parameters()?
+            } else {
+                Vec::new()
+            };
+            self.expect(TokenType::RightParen, "expected ) after function params")?;
+            let body = self.block()?;
+
+            let stmts = if let Stmt::Block(stmts) = body {
+                stmts
+            } else {
+                vec![]
+            };
+
+            methods.push(FunctionDecl {
+                name,
+                params,
+                body: stmts,
+            })
+        }
+
+        self.expect(
+            TokenType::RightBrace,
+            "class definition must end with 
+            '}'",
+        )?;
+        Ok(Stmt::ClassDecl(ClassDecl { name, methods }))
     }
 
     fn fun_decl(&mut self) -> ParseStmtResult {
@@ -318,7 +364,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(if self.peek_expect(TokenType::Eq) {
             self.expect(TokenType::Eq, "expected = in variable assignment")?;
             let inner = self.assignment()?;
-            Expr::Assign(Box::new(ast), Box::new(inner))
+            if let Expr::Get(object, property) = ast {
+                Expr::Set(object, property, Box::new(inner))
+            } else {
+                Expr::Assign(Box::new(ast), Box::new(inner))
+            }
         } else {
             ast
         })
@@ -451,6 +501,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     )?;
                     callee = Expr::Call(Box::new(callee), args);
                 }
+                TokenType::Dot => {
+                    self.next_token()?;
+                    let ident = self.identifier()?;
+                    callee = Expr::Get(Box::new(callee), ident);
+                }
                 _ => break,
             }
         }
@@ -528,6 +583,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Expr::Lambda(params, stmts)
             }
             TokenType::Ident => Expr::Ident(next.lexeme.into()),
+            TokenType::This => Expr::This("this".to_string().into()),
             _ => unreachable!(),
         })
     }

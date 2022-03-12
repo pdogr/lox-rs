@@ -85,12 +85,36 @@ impl<W: Write> Interpreter<W> {
                     params,
                     body,
                     self.env.clone(),
+                    false,
                 ));
                 self.env.borrow_mut().insert(name, func);
             }
             Stmt::Return(value) => {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
                 return Err(ErrorOrCtxJmp::RetJump { object: value });
+            }
+            Stmt::ClassDecl(ClassDecl { name, methods }) => {
+                let class = Object::Class(ClassObject::new(
+                    name.clone(),
+                    methods
+                        .into_iter()
+                        .map(|method| {
+                            let name = method.name;
+                            let is_initializer = &name.ident == "init";
+                            (
+                                name.ident.clone(),
+                                FuncObject::new(
+                                    name,
+                                    method.params,
+                                    method.body,
+                                    Rc::clone(&self.env),
+                                    is_initializer,
+                                ),
+                            )
+                        })
+                        .collect(),
+                ));
+                self.env.borrow_mut().insert(name, class);
             }
         };
         Ok(())
@@ -394,5 +418,166 @@ mod tests {
             }
             "#,
         "\"global\"\n\"global\"\n"
+    );
+
+    test_interpret_ok!(class_declaration, "class Bagel{}", "");
+
+    test_interpret_ok!(
+        class_declaration_print,
+        r#"
+        class DevonshireCream{
+            serveOn(){
+                return "Scones";
+            }
+        }
+        print DevonshireCream;
+        "#,
+        "DevonshireCream\n"
+    );
+
+    test_interpret_ok!(
+        class_constructor,
+        r#"
+        class Bagel{}
+        Bagel();
+        "#,
+        ""
+    );
+
+    test_interpret_ok!(
+        class_instance,
+        r#"
+        class Bagel {}
+        var bagel = Bagel();
+        print bagel;
+        "#,
+        "instance@Bagel\n"
+    );
+
+    test_interpret_ok!(
+        instance_setter,
+        r#"
+        class Bagel {}
+        var bagel = Bagel();
+
+        bagel.type = "food";
+        bagel.amount = 42;
+
+        print bagel.type;
+        print bagel.amount;
+
+        bagel.type = nil;
+
+        print bagel.type;
+        "#,
+        "\"food\"\n42\nnil\n"
+    );
+
+    test_interpret_ok!(
+        instance_method,
+        r#"
+        class Bacon {
+            eat(){
+                print "Crunch crunch";
+            }
+        }
+        Bacon().eat();
+        "#,
+        "\"Crunch crunch\"\n"
+    );
+
+    test_interpret_ok!(
+        print_this,
+        r#"
+        class Egotist{
+            speak(){
+                print this;
+            }
+        }
+        var method = Egotist().speak;
+        method();
+        "#,
+        "instance@Egotist\n"
+    );
+
+    test_interpret_ok!(
+        instance_this,
+        r#"
+        class Cake{
+            taste(){
+                var adj = "delicious";
+                print this.flavor + " cake is " + adj + "!";
+            }
+        }
+        var cake = Cake();
+        cake.flavor = "Chocolate";
+        cake.taste();
+        "#,
+        "\"Chocolate cake is delicious!\"\n"
+    );
+
+    test_interpret_ok!(
+        this_callback,
+        r#"
+        class Thing{
+            getCallback(){
+                fun local(){
+                    print this;
+                }
+                return local;
+            }
+        }
+        var cb = Thing().getCallback();
+        cb();
+        "#,
+        "instance@Thing\n"
+    );
+
+    test_interpret_ok!(
+        multiple_this,
+        r#"
+        class Burger{
+            show(){
+                print this.size + this.shape;
+            }
+        }
+        var roundBurger = Burger();
+        roundBurger.size = "42 ";
+        roundBurger.shape = "round";
+        roundBurger.show();
+        "#,
+        "\"42 round\"\n"
+    );
+
+    test_interpret_ok!(
+        class_init,
+        r#"
+        class Foo {
+            init(){
+                print this;
+            }
+        }
+        var foo = Foo();
+        print foo.init();
+        "#,
+        "instance@Foo\ninstance@Foo\ninstance@Foo\n"
+    );
+
+    test_interpret_ok!(
+        successful_reinit,
+        r#"
+        class Foo {
+            init(n){
+                this.n = n;
+            }
+        }
+        var foo = Foo(42);
+        print foo.n;
+        foo.n = 69;
+        print foo.n;
+        foo.init(420);
+        print foo.n;
+        "#,
+        "42\n69\n420\n"
     );
 }

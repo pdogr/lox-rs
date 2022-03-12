@@ -1,7 +1,8 @@
+use std::cell::RefCell;
 use std::io::Write;
+use std::rc::Rc;
 
 use crate::anyhow;
-
 use crate::ast::*;
 use crate::ErrorOrCtxJmp;
 use crate::EvalResult;
@@ -19,10 +20,21 @@ impl Arity for FuncObject {
     }
 }
 
+impl Arity for ClassObject {
+    fn arity(&self) -> Result<usize> {
+        Ok(if let Some(init_method) = self.find_method("init") {
+            init_method.arity()?
+        } else {
+            0
+        })
+    }
+}
+
 impl Arity for Object {
     fn arity(&self) -> Result<usize> {
         match self {
             Object::Function(f) => f.arity(),
+            Object::Class(c) => c.arity(),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
                     "expected function got {}",
@@ -58,7 +70,7 @@ impl<W: Write> Callable<W> for FuncObject {
                 ctx.env.borrow_mut().insert(param, arg);
             });
 
-        let function_result = match ctx.run_many(self.body.clone()) {
+        let mut function_result = match ctx.run_many(self.body.clone()) {
             Ok(()) => Object::Nil,
             Err(ErrorOrCtxJmp::RetJump { object }) => object,
             e => {
@@ -67,6 +79,15 @@ impl<W: Write> Callable<W> for FuncObject {
             }
         };
 
+        if self.is_initializer {
+            function_result = ctx
+                .env
+                .borrow()
+                .get(&"this".to_string().into(), 1)?
+                .borrow()
+                .clone();
+        }
+
         ctx.pop_scope();
         ctx.reset_env();
 
@@ -74,13 +95,33 @@ impl<W: Write> Callable<W> for FuncObject {
     }
 }
 
+impl<W: Write> Callable<W> for ClassObject {
+    fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
+        if args.len() != self.arity().unwrap() {
+            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                "wrong number of arguments in class constructor\n expected arguments{} got {}",
+                self.arity().unwrap(),
+                args.len()
+            )));
+        }
+        let instance = Rc::new(RefCell::new(ClassInstance::new(self.clone(), vec![])));
+
+        if let Some(init_method) = self.find_method("init") {
+            FuncObject::bind(init_method, Rc::clone(&instance)).call(args, ctx)?;
+        }
+
+        Ok(Object::Instance(instance))
+    }
+}
+
 impl<W: Write> Callable<W> for Object {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         match self {
             Object::Function(f) => f.call(args, ctx),
+            Object::Class(c) => c.call(args, ctx),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected function got {}",
+                    "expected function in callable got {}",
                     self
                 )));
             }

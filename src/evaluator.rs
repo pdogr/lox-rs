@@ -29,7 +29,7 @@ impl Evaluator {
             Expr::Float(f) => Object::Float(f),
             Expr::Boolean(b) => Object::Boolean(b),
             Expr::String(s) => Object::String(s),
-            Expr::Ident(ident) => {
+            Expr::Ident(ident) | Expr::This(ident) => {
                 let distance = match interpreter.locals.get(&ident) {
                     Some(distance) => distance,
                     None => {
@@ -157,6 +157,32 @@ impl Evaluator {
                 body,
                 interpreter.env.clone(),
             )),
+            Expr::Get(object, property) => {
+                match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
+                    Instance(i) => ClassInstance::get(&property.ident, i)?,
+                    x => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "only class instances have properties, got {}",
+                            x
+                        )))
+                    }
+                }
+            }
+            Expr::Set(object, property, value) => {
+                match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
+                    Instance(i) => {
+                        let value = Evaluator::evaluate(*value, Rc::clone(&env), interpreter)?;
+                        i.borrow_mut().set(property.ident, value.clone());
+                        value
+                    }
+                    x => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "only class instances can set properties, got {}",
+                            x
+                        )))
+                    }
+                }
+            }
         };
         Ok(r)
     }

@@ -1,7 +1,14 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::rc::Rc;
 
+use crate::anyhow;
+use crate::push_env;
 use crate::Env;
+use crate::ErrorOrCtxJmp;
+use crate::Result;
 use crate::TokenType;
 use crate::Uuid;
 
@@ -140,6 +147,9 @@ pub enum Expr {
     Logical(BinaryOp, Box<Expr>, Box<Expr>),
     Call(Box<Expr>, Arguments),
     Lambda(Vec<Identifier>, Vec<Stmt>),
+    Get(Box<Expr>, Identifier),
+    Set(Box<Expr>, Identifier, Box<Expr>),
+    This(Identifier),
 }
 
 impl Eq for Expr {}
@@ -171,6 +181,12 @@ pub struct Loop {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ClassDecl {
+    pub(crate) name: Identifier,
+    pub(crate) methods: Vec<FunctionDecl>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Print(Expr),
     Expr(Expr),
@@ -180,6 +196,7 @@ pub enum Stmt {
     Loop(Loop),
     FunctionDecl(FunctionDecl),
     Return(Expr),
+    ClassDecl(ClassDecl),
 }
 
 #[derive(Clone)]
@@ -188,15 +205,23 @@ pub struct FuncObject {
     pub(crate) params: Vec<Identifier>,
     pub(crate) body: Vec<Stmt>,
     pub(crate) closure: Env,
+    pub(crate) is_initializer: bool,
 }
 
 impl FuncObject {
-    pub fn new(name: Identifier, params: Vec<Identifier>, body: Vec<Stmt>, closure: Env) -> Self {
+    pub fn new(
+        name: Identifier,
+        params: Vec<Identifier>,
+        body: Vec<Stmt>,
+        closure: Env,
+        is_initializer: bool,
+    ) -> Self {
         Self {
             name: Some(name),
             params,
             body,
             closure,
+            is_initializer,
         }
     }
 
@@ -206,7 +231,15 @@ impl FuncObject {
             params,
             body,
             closure,
+            is_initializer: false,
         }
+    }
+
+    pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> FuncObject {
+        let env = push_env(f.closure);
+        env.borrow_mut()
+            .insert("this".to_string().into(), Object::Instance(instance));
+        Self { closure: env, ..f }
     }
 }
 
@@ -226,6 +259,87 @@ impl Debug for FuncObject {
     }
 }
 
+impl Display for FuncObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.name {
+            Some(ref name) => write!(f, "fun@{}", name),
+            None => write!(f, "closure@"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassObject {
+    name: Identifier,
+    methods: HashMap<String, FuncObject>,
+}
+
+impl Display for ClassObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl ClassObject {
+    pub fn new(name: Identifier, methods: Vec<(String, FuncObject)>) -> Self {
+        Self {
+            name,
+            methods: methods.into_iter().map(|(id, f)| (id, f)).collect(),
+        }
+    }
+
+    pub fn find_method(&self, property: &str) -> Option<FuncObject> {
+        self.methods.get(property).cloned()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassInstance {
+    class: ClassObject,
+    fields: HashMap<String, Object>,
+}
+
+impl Display for ClassInstance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "instance@{}", self.class,)
+    }
+}
+
+impl ClassInstance {
+    pub fn new_empty(class: ClassObject) -> Self {
+        Self {
+            class,
+            fields: HashMap::new(),
+        }
+    }
+
+    pub fn new(class: ClassObject, fields: Vec<(Identifier, Object)>) -> Self {
+        Self {
+            class,
+            fields: fields.into_iter().map(|(id, o)| (id.ident, o)).collect(),
+        }
+    }
+
+    pub fn get(property: &str, instance: Rc<RefCell<ClassInstance>>) -> Result<Object> {
+        if let Some(o) = instance.borrow().fields.get(property) {
+            return Ok(o.clone());
+        }
+
+        if let Some(m) = instance.borrow().class.find_method(property) {
+            return Ok(Object::Function(FuncObject::bind(m, Rc::clone(&instance))));
+        }
+
+        return Err(ErrorOrCtxJmp::Error(anyhow!(
+            "undefined property: \"{}\"",
+            property
+        )));
+    }
+
+    pub fn set(&mut self, property: String, value: Object) {
+        self.fields.insert(property, value);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Nil,
@@ -234,6 +348,8 @@ pub enum Object {
     Boolean(bool),
     String(String),
     Function(FuncObject),
+    Class(ClassObject),
+    Instance(Rc<RefCell<ClassInstance>>),
 }
 
 impl Display for Object {
@@ -244,7 +360,9 @@ impl Display for Object {
             Object::Float(fl) => write!(f, "{}", *fl),
             Object::Boolean(b) => write!(f, "{}", *b),
             Object::String(s) => write!(f, "\"{}\"", s),
-            Object::Function(_) => todo!(),
+            Object::Function(fo) => write!(f, "{}", fo),
+            Object::Class(co) => write!(f, "{}", co),
+            Object::Instance(ci) => write!(f, "{}", ci.borrow()),
         }
     }
 }

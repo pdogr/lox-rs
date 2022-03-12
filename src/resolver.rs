@@ -10,9 +10,25 @@ use crate::Stmt;
 
 pub type ResolveResult = Result<()>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FunctionType {
+    None,
+    Function,
+    ClassMethod,
+    Initializer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClassType {
+    None,
+    Class,
+}
+
 pub struct Resolver<'a, W> {
     interpreter: &'a mut Interpreter<W>,
-    scopes: Vec<HashMap<&'a String, bool>>,
+    scopes: Vec<HashMap<&'a str, bool>>,
+    current_function: FunctionType,
+    current_class: ClassType,
 }
 
 impl<'a, W: Write> Resolver<'a, W> {
@@ -20,6 +36,8 @@ impl<'a, W: Write> Resolver<'a, W> {
         Self {
             interpreter,
             scopes: vec![HashMap::new()],
+            current_function: FunctionType::None,
+            current_class: ClassType::None,
         }
     }
 
@@ -56,21 +74,47 @@ impl<'a, W: Write> Resolver<'a, W> {
                 self.resolve_expr(cond)?;
                 self.resolve_stmt(body)?;
             }
-            Stmt::FunctionDecl(FunctionDecl { name, params, body }) => {
+            Stmt::FunctionDecl(f) => {
+                self.declare(&f.name);
+                self.define(&f.name);
+                self.resolve_function(&f.params, &f.body, FunctionType::Function)?;
+            }
+            Stmt::Return(expr) => {
+                if self.current_function == FunctionType::None {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "can't return from top level code"
+                    )));
+                }
+
+                if self.current_function == FunctionType::Initializer {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "can't return a value from top level code"
+                    )));
+                }
+
+                self.resolve_expr(expr)?;
+            }
+            Stmt::ClassDecl(ClassDecl { name, methods }) => {
                 self.declare(name);
                 self.define(name);
 
+                let enclosing_class = self.current_class;
+                self.current_class = ClassType::Class;
+
                 self.begin_scope();
-
-                for param in params {
-                    self.declare(param);
-                    self.define(param);
+                self.scopes.last_mut().unwrap().insert("this", true);
+                for method in methods {
+                    let declaration = if method.name.ident == "this" {
+                        FunctionType::Initializer
+                    } else {
+                        FunctionType::ClassMethod
+                    };
+                    self.resolve_function(&method.params, &method.body, declaration)?;
                 }
-                self.resolve(body)?;
-
                 self.end_scope();
+
+                self.current_class = enclosing_class;
             }
-            Stmt::Return(expr) => self.resolve_expr(expr)?,
         }
         Ok(())
     }
@@ -80,7 +124,7 @@ impl<'a, W: Write> Resolver<'a, W> {
             Expr::Nil | Expr::Int(_) | Expr::Float(_) | Expr::Boolean(_) | Expr::String(_) => {}
             Expr::Ident(id) => {
                 if !self.scopes.is_empty() {
-                    match self.scopes.last().unwrap().get(&id.ident) {
+                    match self.scopes.last().unwrap().get(&id.ident as &str) {
                         Some(b) if !(*b) => {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
                                 "unable to read local variable in its own initalizer"
@@ -113,16 +157,22 @@ impl<'a, W: Write> Resolver<'a, W> {
                 }
             }
             Expr::Lambda(params, body) => {
-                self.begin_scope();
-
-                for param in params {
-                    self.declare(param);
-                    self.define(param);
+                self.resolve_function(params, body, FunctionType::Function)?
+            }
+            Expr::Get(object, _fields) => {
+                self.resolve_expr(object)?;
+            }
+            Expr::Set(object, _, value) => {
+                self.resolve_expr(value)?;
+                self.resolve_expr(object)?;
+            }
+            Expr::This(this) => {
+                if self.current_class == ClassType::None {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "can't use 'this' outside class context"
+                    )));
                 }
-
-                self.resolve(body)?;
-
-                self.end_scope();
+                self.resolve_local(this)?
             }
         }
         Ok(())
@@ -138,7 +188,7 @@ impl<'a, W: Write> Resolver<'a, W> {
     pub fn resolve_local(&mut self, id: &Identifier) -> ResolveResult {
         for i in (0..self.scopes.len()).rev() {
             let scope = unsafe { self.scopes.get_unchecked(i) };
-            match scope.get(&id.ident) {
+            match scope.get(&id.ident as &str) {
                 Some(_) => {
                     self.interpreter
                         .resolve(id.clone(), self.scopes.len() - 1 - i);
@@ -154,6 +204,28 @@ impl<'a, W: Write> Resolver<'a, W> {
             "variable {} not find in any of scope",
             id
         )))
+    }
+
+    fn resolve_function(
+        &mut self,
+        params: &'a [Identifier],
+        body: &'a [Stmt],
+        ftype: FunctionType,
+    ) -> ResolveResult {
+        let enclosing_function = self.current_function;
+        self.current_function = ftype;
+        self.begin_scope();
+
+        for param in params {
+            self.declare(param);
+            self.define(param);
+        }
+
+        self.resolve(body)?;
+
+        self.end_scope();
+        self.current_function = enclosing_function;
+        Ok(())
     }
 
     fn begin_scope(&mut self) {
