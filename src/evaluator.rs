@@ -164,10 +164,9 @@ impl Evaluator {
             Expr::Get(object, property) => {
                 match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
                     Instance(i) => ClassInstance::get(&property.ident, i)?,
-                    x => {
+                    _ => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "only class instances have properties, got {}",
-                            x
+                            "Only instances have properties."
                         )))
                     }
                 }
@@ -179,12 +178,7 @@ impl Evaluator {
                         i.borrow_mut().set(property.ident, value.clone());
                         value
                     }
-                    x => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "only class instances can set properties, got {}",
-                            x
-                        )))
-                    }
+                    _ => return Err(ErrorOrCtxJmp::Error(anyhow!("Only instances have fields."))),
                 }
             }
             Expr::Super(super_class, method) => {

@@ -7,4 +7,4 @@ fun f() {
 }
 
 var h = f();
-h(); // expect: i
+h(); // expect: "i"

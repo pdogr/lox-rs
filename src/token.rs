@@ -61,8 +61,8 @@ impl Display for TokenType {
             match self {
                 LeftParen => "(",
                 RightParen => ")",
-                LeftBrace => "{{",
-                RightBrace => "}}",
+                LeftBrace => "{",
+                RightBrace => "}",
                 Dot => ".",
                 Comma => ",",
                 Plus => "+",
@@ -115,8 +115,8 @@ impl Token {
         let lexeme = match ty {
             LeftParen => "(",
             RightParen => ")",
-            LeftBrace => "{{",
-            RightBrace => "}}",
+            LeftBrace => "{",
+            RightBrace => "}",
             Dot => ".",
             Comma => ",",
             Plus => "+",

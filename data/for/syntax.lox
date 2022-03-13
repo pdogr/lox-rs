@@ -16,7 +16,7 @@ for (var a = 0; a < 3; a = a + 1) {
 fun foo() {
   for (;;) return "done";
 }
-print foo(); // expect: done
+print foo(); // expect: "done"
 
 // No variable.
 var i = 0;

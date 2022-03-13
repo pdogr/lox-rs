@@ -5,5 +5,5 @@ class Foo {
 }
 
 var bar = Foo().bar;
-print "got method"; // expect: got method
-bar("arg");          // expect: arg
+print "got method"; // expect: "got method"
+bar("arg");          // expect: "arg"

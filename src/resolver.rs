@@ -199,8 +199,8 @@ impl Resolver {
                 self.resolve_expr(object, interpreter)?;
             }
             Expr::Set(object, _, value) => {
-                self.resolve_expr(value, interpreter)?;
                 self.resolve_expr(object, interpreter)?;
+                self.resolve_expr(value, interpreter)?;
             }
             Expr::This(this) => {
                 if self.current_class == ClassType::None {

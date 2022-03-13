@@ -33,22 +33,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 self.i.next();
                 Ok(())
             }
-            Some(actual) => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected token {:?} got token {:?}, {}",
-                    expected,
-                    actual,
-                    err
-                )))
-            }
-
-            None => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "missing token, expected token {:?}, {}",
-                    expected,
-                    err
-                )))
-            }
+            _ => return Err(ErrorOrCtxJmp::Error(anyhow!("{}", err))),
         }
     }
 
@@ -142,6 +127,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         } else {
             Vec::new()
         };
+
         self.expect(TokenType::RightParen, "expected ) after function params")?;
         let body = self.block()?;
 
@@ -265,20 +251,33 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         };
         self.expect(TokenType::RightParen, "expected ) after for loop")?;
 
-        let body = self.statement()?;
+        let body = match self.i.peek() {
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Fun => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'fun': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class'. Expect expression."
+                )))
+            }
+            Some(_) => self.statement()?,
+            None => return Err(ErrorOrCtxJmp::Error(anyhow!("Expect expression."))),
+        };
         let loop_body = if let Some(update) = update {
-            Stmt::Block(if let Stmt::Block(mut stmts) = body {
-                stmts.push(Stmt::Expr(update));
-                stmts
-            } else {
-                vec![body, Stmt::Expr(update)]
-            })
+            vec![body, Stmt::Expr(update)]
         } else {
-            body
+            vec![body]
         };
         block.push(Stmt::Loop(Loop {
             cond,
-            body: Box::new(loop_body),
+            body: Box::new(Stmt::Block(loop_body)),
         }));
 
         Ok(Stmt::Block(block))

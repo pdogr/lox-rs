@@ -346,7 +346,7 @@ impl ClassInstance {
         }
 
         return Err(ErrorOrCtxJmp::Error(anyhow!(
-            "undefined property: \"{}\"",
+            "Undefined property '{}'.",
             property
         )));
     }
