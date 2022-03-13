@@ -466,7 +466,7 @@ mod tests {
         }
         print DevonshireCream;
         "#,
-        "DevonshireCream\n"
+        "<class DevonshireCream>\n"
     );
 
     test_interpret_ok!(

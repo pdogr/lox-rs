@@ -108,6 +108,14 @@ impl Resolver {
                 self.current_class = ClassType::Class;
 
                 if let Some(super_class) = super_class {
+                    if let Expr::Ident(ref sc) = super_class {
+                        if sc.ident == name.ident {
+                            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                                "Error at '{}': A class can't inherit from itself.",
+                                name
+                            )));
+                        }
+                    }
                     self.resolve_expr(super_class, interpreter)?;
                     self.begin_scope();
                     self.scopes

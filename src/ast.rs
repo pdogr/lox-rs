@@ -279,7 +279,7 @@ pub struct ClassObject {
 
 impl Display for ClassObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "<class {}>", self.name)
     }
 }
 
@@ -317,7 +317,7 @@ pub struct ClassInstance {
 
 impl Display for ClassInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "instance@{}", self.class,)
+        write!(f, "instance@{}", self.class.name)
     }
 }
 
