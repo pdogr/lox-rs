@@ -19,9 +19,9 @@ var g;
 }
 
 f();
-// expect: local
-// expect: after f
+// expect: "local"
+// expect: "after f"
 
 g();
-// expect: after f
-// expect: after g
+// expect: "after f"
+// expect: "after g"

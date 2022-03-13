@@ -163,12 +163,18 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                     }
                     a if a.is_ascii_alphanumeric() => {
                         let mut identifier = vec![a];
-                        identifier.extend(self.take_while(|c| c.is_ascii_alphanumeric()));
+                        identifier
+                            .extend(self.take_while(|c| c.is_ascii_alphanumeric() || c == '_'));
                         let identifier: String = identifier.into_iter().collect();
                         let ty = KEYWORDS.get(&identifier as &str).unwrap_or(&Ident);
                         return Ok(Token::new_with_lexeme(*ty, &identifier));
                     }
-                    _ => return Err(ErrorOrCtxJmp::Error(anyhow!("unable to lex"))),
+                    x => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "Error in lexing: Found unexpected token {}",
+                            x
+                        )))
+                    }
                 },
                 None => return Ok(Token::new(Eof)),
             };
