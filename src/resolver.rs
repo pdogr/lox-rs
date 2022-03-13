@@ -84,7 +84,7 @@ impl Resolver {
             Stmt::Return(expr) => {
                 if self.current_function == FunctionType::None {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "can't return from top level code"
+                        "Error at 'return': Can't return from top-level code."
                     )));
                 }
 

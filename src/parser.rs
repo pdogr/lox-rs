@@ -73,11 +73,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::Class,
             "expected class to begin class declaration",
         )?;
-        let name = self.identifier()?;
+        let name = self.identifier("Expect identifier in class decl.")?;
 
         let super_class = if self.peek_expect(TokenType::Lt) {
             self.next_token()?;
-            Some(Expr::Ident(self.identifier()?))
+            Some(Expr::Ident(self.identifier("Expect superclass name.")?))
         } else {
             None
         };
@@ -88,7 +88,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let mut methods = Vec::new();
         while !self.peek_expect(TokenType::RightBrace) {
-            let name = self.identifier()?;
+            let name = self.identifier("Expect class method name.")?;
 
             self.expect(TokenType::LeftParen, "expected ( after function name")?;
             let params = if !self.peek_expect(TokenType::RightParen) {
@@ -126,7 +126,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn fun_decl(&mut self) -> ParseStmtResult {
         self.expect(TokenType::Fun, "expected fun as function declaration")?;
-        let name = self.identifier()?;
+        let name = self.identifier("Expect function name.")?;
 
         self.expect(TokenType::LeftParen, "Expect '(' after function name")?;
         let params = if !self.peek_expect(TokenType::RightParen) {
@@ -164,20 +164,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }))
     }
 
-    fn identifier(&mut self) -> Result<Identifier> {
+    fn identifier(&mut self, err: &str) -> Result<Identifier> {
         match self.next_token()? {
             t if t.ty == TokenType::Ident => Ok(t.lexeme.into()),
-            x => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected identifier, got {:?}",
-                    x
-                )))
-            }
+            x => return Err(ErrorOrCtxJmp::Error(anyhow!("Error at '{}': {}", x, err))),
         }
     }
 
     fn parameters(&mut self) -> Result<Vec<Identifier>> {
-        let mut params = vec![self.identifier()?];
+        let mut params = vec![self.identifier("Expect parameter name.")?];
         while let Some(tok) = self.i.peek() {
             match tok.ty {
                 TokenType::Comma => {
@@ -188,7 +183,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                             self.i.peek().unwrap()
                         )));
                     } else {
-                        params.push(self.identifier()?);
+                        params.push(self.identifier("Expect parameter name.")?);
                     }
                 }
                 _ => break,
@@ -199,7 +194,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn var_decl(&mut self) -> ParseStmtResult {
         self.expect(TokenType::Var, "expected var keyword in var declaration")?;
-        let name = self.identifier()?;
+        let name = self.identifier("Expect variable name in declaration.")?;
 
         let ast = if self.peek_expect(TokenType::Eq) {
             self.next_token()?;
@@ -574,7 +569,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 }
                 TokenType::Dot => {
                     self.next_token()?;
-                    let ident = self.identifier()?;
+                    let ident = self.identifier("Expect property name after '.'.")?;
                     callee = Expr::Get(Box::new(callee), ident);
                 }
                 _ => break,
@@ -658,7 +653,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::This => Expr::This("this".to_string().into()),
             TokenType::Super => {
                 self.expect(TokenType::Dot, "super must be followed by '.'")?;
-                let method = self.identifier()?;
+                let method = self.identifier("Expect property name after 'super'.")?;
                 Expr::Super("super".to_string().into(), method)
             }
             elt => {

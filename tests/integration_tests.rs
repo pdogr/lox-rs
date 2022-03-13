@@ -93,9 +93,14 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     "data/for",
     "data/function",
     "data/if",
+    "data/inheritance",
+    "data/logical_operator",
+    "data/method",
     "data/nil",
+    "data/number",
     "data/operator",
-    "data/print"
+    "data/print",
+    "data/return"
 )]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {

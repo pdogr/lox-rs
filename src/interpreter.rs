@@ -103,8 +103,7 @@ impl<W: Write> Interpreter<W> {
                         Object::Class(c) => (Some(Box::new(c)), true),
                         _ => {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
-                                "superclass must be a class, found {}",
-                                sc
+                                "Superclass must be a class."
                             )))
                         }
                     }

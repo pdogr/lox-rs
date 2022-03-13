@@ -67,7 +67,11 @@ impl Evaluator {
                     (Sub, Int(a), Float(b)) => Float(a as f64 - b),
                     (Mul, Int(a), Int(b)) => Int(a * b),
                     (Mul, Int(a), Float(b)) => Float(a as f64 * b),
+                    (Div, Float(_) | Int(_), Float(0.0) | Int(0)) => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!("Cannot divide by 0.",)))
+                    }
                     (Div, Int(a), Int(b)) => Int(a / b),
+
                     (Div, Int(a), Float(b)) => Float(a as f64 / b),
                     (Add, Float(a), Int(b)) => Float(a + b as f64),
                     (Add, Float(a), Float(b)) => Float(a + b),
@@ -129,21 +133,17 @@ impl Evaluator {
                 BinaryOp::And => {
                     let value = Evaluator::evaluate(*e1, Rc::clone(&env), interpreter)?;
                     if !value.is_truth() {
-                        Object::Boolean(false)
+                        value
                     } else {
-                        Object::Boolean(
-                            Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?.is_truth(),
-                        )
+                        Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?
                     }
                 }
                 BinaryOp::Or => {
                     let value = Evaluator::evaluate(*e1, Rc::clone(&env), interpreter)?;
                     if value.is_truth() {
-                        Object::Boolean(true)
+                        value
                     } else {
-                        Object::Boolean(
-                            Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?.is_truth(),
-                        )
+                        Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?
                     }
                 }
                 _ => unreachable!(),
