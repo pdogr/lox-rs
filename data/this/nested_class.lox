@@ -1,13 +1,13 @@
 class Outer {
   method() {
-    print this; // expect: <inst Outer>
+    print this; // expect: <instance@Outer>
 
     fun f() {
-      print this; // expect: <inst Outer>
+      print this; // expect: <instance@Outer>
 
       class Inner {
         method() {
-          print this; // expect: <inst Inner>
+          print this; // expect: <instance@Inner>
         }
       }
 

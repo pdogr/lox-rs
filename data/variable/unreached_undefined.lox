@@ -2,4 +2,6 @@ if (false) {
   print notDefined;
 }
 
-print "ok"; // expect: ok
+print "ok"; // expect: Undefined variable 'notDefined'.
+
+// This impl does do static changes to this error will be caught

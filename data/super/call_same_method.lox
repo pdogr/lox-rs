@@ -12,5 +12,5 @@ class Derived < Base {
 }
 
 Derived().foo();
-// expect: Derived.foo()
-// expect: Base.foo()
+// expect: "Derived.foo()"
+// expect: "Base.foo()"

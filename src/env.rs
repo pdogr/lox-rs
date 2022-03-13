@@ -39,7 +39,7 @@ impl EnvInner {
         match up {
             0 => match env.values.get(&id.ident) {
                 Some(val) => Ok(Rc::clone(val)),
-                None => Err(ErrorOrCtxJmp::Error(anyhow!("undefined variable {}", id))),
+                None => Err(ErrorOrCtxJmp::Error(anyhow!("Undefined variable {}", id))),
             },
             _ => match &env.enclosing {
                 Some(enclosing) => EnvInner::_get(&enclosing.borrow(), id, up - 1),
@@ -57,7 +57,22 @@ impl EnvInner {
     }
 
     pub fn insert(&mut self, id: Identifier, o: Object) -> Option<Rc<RefCell<Object>>> {
-        self.values
-            .insert(id.ident, Rc::new(RefCell::new(o)))
+        self.values.insert(id.ident, Rc::new(RefCell::new(o)))
+    }
+
+    pub fn insert_fail_if_present(&mut self, name: Identifier, object: Object) -> Result<()> {
+        match self
+            .values
+            .insert(name.ident.clone(), Rc::new(RefCell::new(object)))
+        {
+            // TODO: make variable definition with an Option, to not have this workaround.
+            Some(tok) if *tok.borrow() != Object::Nil => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at '{}': Already a variable with this name in this scope.",
+                    name
+                )));
+            }
+            _ => Ok(()),
+        }
     }
 }

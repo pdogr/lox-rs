@@ -1,3 +1,4 @@
 var a = "value";
 var a = a;
-print a; // expect: value
+print a; // expect: Error at 'a': Can't read local variable in its own initializer.
+// This impl explicitly errors such assignments

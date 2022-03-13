@@ -100,8 +100,14 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     "data/number",
     "data/operator",
     "data/print",
+    "data/regression",
     "data/return",
-    "data/string"
+    "data/string",
+    "data/super",
+    "data/this",
+    "data/trivial",
+    "data/variable",
+    "data/while"
 )]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
@@ -114,6 +120,7 @@ fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Bo
 
     let name = env::var("CARGO_PKG_NAME")?;
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
+
     let bin_path = format!("{manifest_dir}/target/debug/{name}");
     run_test(&bin_path, path, contents)
 }

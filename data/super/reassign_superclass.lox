@@ -17,6 +17,6 @@ class OtherBase {
 }
 
 var derived = Derived();
-derived.method(); // expect: Base.method()
+derived.method(); // expect: "Base.method()"
 Base = OtherBase;
-derived.method(); // expect: Base.method()
+derived.method(); // expect: "Base.method()"

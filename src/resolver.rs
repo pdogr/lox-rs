@@ -161,7 +161,8 @@ impl Resolver {
                     match self.scopes.last().unwrap().get(&id.ident as &str) {
                         Some(b) if !(*b) => {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
-                                "unable to read local variable in its own initalizer"
+                                "Error at '{}': Can't read local variable in its own initializer.",
+                                &id.ident
                             )))
                         }
                         _ => {}
@@ -205,7 +206,7 @@ impl Resolver {
             Expr::This(this) => {
                 if self.current_class == ClassType::None {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "can't use 'this' outside class context"
+                        "Error at 'this': Can't use 'this' outside of a class."
                     )));
                 }
                 self.resolve_local(this, interpreter)?
@@ -213,7 +214,7 @@ impl Resolver {
             Expr::Super(super_class, _method) => {
                 if self.current_class == ClassType::None {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "can't use 'super' outside class context"
+                        "Error at 'super': Can't use 'super' outside of a class."
                     )));
                 }
                 self.resolve_local(super_class, interpreter)?;
@@ -250,10 +251,16 @@ impl Resolver {
             }
         }
 
-        Err(ErrorOrCtxJmp::Error(anyhow!(
-            "Undefined variable '{}'.",
-            id.ident
-        )))
+        if id.ident == "super" {
+            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                "Error at 'super': Can't use 'super' in a class with no superclass."
+            )));
+        } else {
+            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                "Undefined variable '{}'.",
+                id.ident
+            )));
+        }
     }
 
     fn resolve_function<W: Write>(

@@ -1,3 +1,5 @@
 var a = "1";
 var a;
-print a; // expect: nil
+print a; // expect: Error at 'a': Already a variable with this name in this scope.
+
+// This impl does not allow same scope redeclaration

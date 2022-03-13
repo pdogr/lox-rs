@@ -23,4 +23,4 @@ class C < B {
   }
 }
 
-C().getClosure()(); // expect: A
+C().getClosure()(); // expect: "A"

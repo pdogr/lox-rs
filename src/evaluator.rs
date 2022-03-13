@@ -211,14 +211,13 @@ impl Evaluator {
                     Some(m) => m,
                     None => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "could not find method {} in super class {}",
-                            &method.ident,
-                            &super_class.name
-                        )))
+                            "Undefined property '{}'.",
+                            &method.ident
+                        )));
                     }
                 };
 
-                Object::Function(FuncObject::bind(super_class_method, object))
+                Object::Function(FuncObject::bind(super_class_method, object)?)
             }
         };
         Ok(r)

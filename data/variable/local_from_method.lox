@@ -6,4 +6,4 @@ class Foo {
   }
 }
 
-Foo().method(); // expect: variable
+Foo().method(); // expect: "variable"

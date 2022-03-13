@@ -47,7 +47,7 @@ impl<W: Write> Interpreter<W> {
             Stmt::VariableDecl(VariableDecl { name, definition }) => {
                 let definition = definition.unwrap_or(Expr::Nil);
                 let value = Evaluator::evaluate(definition, Rc::clone(&self.env), self)?;
-                self.env.borrow_mut().insert(name, value);
+                self.env.borrow_mut().insert_fail_if_present(name, value)?;
             }
             Stmt::Block(stmts) => {
                 self.push_scope();
@@ -86,7 +86,7 @@ impl<W: Write> Interpreter<W> {
                     self.env.clone(),
                     false,
                 ));
-                self.env.borrow_mut().insert(name, func);
+                self.env.borrow_mut().insert_fail_if_present(name, func)?;
             }
             Stmt::Return(value) => {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
@@ -116,9 +116,8 @@ impl<W: Write> Interpreter<W> {
                     let scc = *sc.clone();
                     self.env
                         .borrow_mut()
-                        .insert("super".to_string().into(), Object::Class(scc));
+                        .insert_fail_if_present("super".to_string().into(), Object::Class(scc))?;
                 }
-
                 let class = Object::Class(ClassObject::new(
                     name.clone(),
                     super_class,
@@ -144,7 +143,7 @@ impl<W: Write> Interpreter<W> {
                 if has_super_class {
                     self.pop_scope();
                 }
-                self.env.borrow_mut().insert(name, class);
+                self.env.borrow_mut().insert_fail_if_present(name, class)?;
             }
         };
         Ok(())

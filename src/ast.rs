@@ -237,11 +237,11 @@ impl FuncObject {
         }
     }
 
-    pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> FuncObject {
+    pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> Result<Self> {
         let env = push_env(f.closure);
         env.borrow_mut()
-            .insert("this".to_string().into(), Object::Instance(instance));
-        Self { closure: env, ..f }
+            .insert_fail_if_present("this".to_string().into(), Object::Instance(instance))?;
+        Ok(Self { closure: env, ..f })
     }
 }
 
@@ -342,7 +342,7 @@ impl ClassInstance {
         }
 
         if let Some(m) = instance.borrow().class.find_method(property) {
-            return Ok(Object::Function(FuncObject::bind(m, Rc::clone(&instance))));
+            return Ok(Object::Function(FuncObject::bind(m, Rc::clone(&instance))?));
         }
 
         return Err(ErrorOrCtxJmp::Error(anyhow!(

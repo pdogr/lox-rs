@@ -14,5 +14,5 @@ class C < B {
 }
 
 C().foo();
-// expect: C.foo()
-// expect: A.foo()
+// expect: "C.foo()"
+// expect: "A.foo()"

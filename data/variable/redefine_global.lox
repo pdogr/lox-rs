@@ -1,3 +1,5 @@
 var a = "1";
 var a = "2";
-print a; // expect: 2
+print a; // expect: Error at 'a': Already a variable with this name in this scope.
+
+// This impl does not allow same scope redeclaration

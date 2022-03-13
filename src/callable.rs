@@ -61,13 +61,9 @@ impl<W: Write> Callable<W> for FuncObject {
         ctx.save_env(self.closure.clone());
         ctx.push_scope();
 
-        self.params
-            .clone()
-            .into_iter()
-            .zip(args.into_iter())
-            .for_each(|(param, arg)| {
-                ctx.env.borrow_mut().insert(param, arg);
-            });
+        for (param, arg) in self.params.clone().into_iter().zip(args.into_iter()) {
+            ctx.env.borrow_mut().insert_fail_if_present(param, arg)?;
+        }
 
         let mut function_result = match ctx.run_many(self.body.clone()) {
             Ok(()) => Object::Nil,
@@ -106,7 +102,7 @@ impl<W: Write> Callable<W> for ClassObject {
         let instance = Rc::new(RefCell::new(ClassInstance::new(self.clone(), vec![])));
 
         if let Some(init_method) = self.find_method("init") {
-            FuncObject::bind(init_method, Rc::clone(&instance)).call(args, ctx)?;
+            FuncObject::bind(init_method, Rc::clone(&instance))?.call(args, ctx)?;
         }
 
         Ok(Object::Instance(instance))

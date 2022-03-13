@@ -16,4 +16,4 @@ class B < A {
 
 
 var closure = B().getClosure();
-closure("arg"); // expect: A.method(arg)
+closure("arg"); // expect: "A.method(arg)"

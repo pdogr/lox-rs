@@ -183,7 +183,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                             self.i.peek().unwrap()
                         )));
                     } else {
-                        params.push(self.identifier("Expect parameter name.")?);
+                        let id = self.identifier("Expect parameter name.")?;
+                        if params.iter().any(|i| i.ident == id.ident) {
+                            return Err(ErrorOrCtxJmp::Error(anyhow!(
+                                "Error at '{}': Already a variable with this name in this scope.",
+                                id.ident
+                            )));
+                        } else {
+                            params.push(id);
+                        }
                     }
                 }
                 _ => break,
@@ -194,7 +202,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn var_decl(&mut self) -> ParseStmtResult {
         self.expect(TokenType::Var, "expected var keyword in var declaration")?;
-        let name = self.identifier("Expect variable name in declaration.")?;
+        let name = self.identifier("Expect variable name.")?;
 
         let ast = if self.peek_expect(TokenType::Eq) {
             self.next_token()?;
@@ -397,7 +405,26 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn while_stmt(&mut self) -> ParseStmtResult {
         self.expect(TokenType::While, "while loop must begin with while keyword")?;
         let cond = self.expression()?;
-        let body = self.statement()?;
+        let body = match self.i.peek() {
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Fun => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'fun': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class'. Expect expression."
+                )))
+            }
+            Some(_) => self.statement()?,
+            None => return Err(ErrorOrCtxJmp::Error(anyhow!("Expect expression."))),
+        };
+
         Ok(Stmt::Loop(Loop {
             cond,
             body: Box::new(body),
@@ -652,8 +679,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::Ident => Expr::Ident(next.lexeme.into()),
             TokenType::This => Expr::This("this".to_string().into()),
             TokenType::Super => {
-                self.expect(TokenType::Dot, "super must be followed by '.'")?;
-                let method = self.identifier("Expect property name after 'super'.")?;
+                self.expect(TokenType::Dot, "Expect '.' after 'super'.")?;
+                let method = self.identifier("Expect superclass method name.")?;
                 Expr::Super("super".to_string().into(), method)
             }
             elt => {

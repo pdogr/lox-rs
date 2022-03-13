@@ -12,5 +12,5 @@ class Derived < Base {
 }
 
 Derived();
-// expect: Derived.init()
-// expect: Base.init(a, b)
+// expect: "Derived.init()"
+// expect: "Base.init(a, b)"
