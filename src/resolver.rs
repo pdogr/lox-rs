@@ -24,31 +24,33 @@ enum ClassType {
     Class,
 }
 
-pub struct Resolver<'a, W> {
-    interpreter: &'a mut Interpreter<W>,
-    scopes: Vec<HashMap<&'a str, bool>>,
+pub struct Resolver {
+    scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionType,
     current_class: ClassType,
 }
 
-impl<'a, W: Write> Resolver<'a, W> {
-    pub fn new(interpreter: &'a mut Interpreter<W>) -> Self {
+impl Resolver {
+    pub fn new() -> Self {
         Self {
-            interpreter,
             scopes: vec![HashMap::new()],
             current_function: FunctionType::None,
             current_class: ClassType::None,
         }
     }
 
-    pub fn resolve_stmt(&mut self, stmt: &'a Stmt) -> ResolveResult {
+    pub fn resolve_stmt<W: Write>(
+        &mut self,
+        stmt: &Stmt,
+        interpreter: &mut Interpreter<W>,
+    ) -> ResolveResult {
         match stmt {
-            Stmt::Print(e) | Stmt::Expr(e) => self.resolve_expr(e)?,
+            Stmt::Print(e) | Stmt::Expr(e) => self.resolve_expr(e, interpreter)?,
             Stmt::VariableDecl(VariableDecl { name, definition }) => {
                 self.declare(name);
                 match definition {
                     Some(initalizer_expr) => {
-                        self.resolve_expr(initalizer_expr)?;
+                        self.resolve_expr(initalizer_expr, interpreter)?;
                     }
                     None => {}
                 }
@@ -56,7 +58,7 @@ impl<'a, W: Write> Resolver<'a, W> {
             }
             Stmt::Block(stmts) => {
                 self.begin_scope();
-                self.resolve(stmts)?;
+                self.resolve(stmts, interpreter)?;
                 self.end_scope();
             }
             Stmt::Conditional(Conditional {
@@ -64,20 +66,20 @@ impl<'a, W: Write> Resolver<'a, W> {
                 if_branch,
                 else_branch,
             }) => {
-                self.resolve_expr(cond)?;
-                self.resolve_stmt(if_branch)?;
+                self.resolve_expr(cond, interpreter)?;
+                self.resolve_stmt(if_branch, interpreter)?;
                 if let Some(else_branch) = else_branch {
-                    self.resolve_stmt(else_branch)?;
+                    self.resolve_stmt(else_branch, interpreter)?;
                 }
             }
             Stmt::Loop(Loop { cond, body }) => {
-                self.resolve_expr(cond)?;
-                self.resolve_stmt(body)?;
+                self.resolve_expr(cond, interpreter)?;
+                self.resolve_stmt(body, interpreter)?;
             }
             Stmt::FunctionDecl(f) => {
                 self.declare(&f.name);
                 self.define(&f.name);
-                self.resolve_function(&f.params, &f.body, FunctionType::Function)?;
+                self.resolve_function(&f.params, &f.body, FunctionType::Function, interpreter)?;
             }
             Stmt::Return(expr) => {
                 if self.current_function == FunctionType::None {
@@ -92,7 +94,7 @@ impl<'a, W: Write> Resolver<'a, W> {
                     )));
                 }
 
-                self.resolve_expr(expr)?;
+                self.resolve_expr(expr, interpreter)?;
             }
             Stmt::ClassDecl(ClassDecl {
                 name,
@@ -106,20 +108,26 @@ impl<'a, W: Write> Resolver<'a, W> {
                 self.current_class = ClassType::Class;
 
                 if let Some(super_class) = super_class {
-                    self.resolve_expr(super_class)?;
+                    self.resolve_expr(super_class, interpreter)?;
                     self.begin_scope();
-                    self.scopes.last_mut().unwrap().insert("super", true);
+                    self.scopes
+                        .last_mut()
+                        .unwrap()
+                        .insert("super".to_string(), true);
                 }
 
                 self.begin_scope();
-                self.scopes.last_mut().unwrap().insert("this", true);
+                self.scopes
+                    .last_mut()
+                    .unwrap()
+                    .insert("this".to_string(), true);
                 for method in methods {
                     let declaration = if method.name.ident == "this" {
                         FunctionType::Initializer
                     } else {
                         FunctionType::ClassMethod
                     };
-                    self.resolve_function(&method.params, &method.body, declaration)?;
+                    self.resolve_function(&method.params, &method.body, declaration, interpreter)?;
                 }
                 self.end_scope();
 
@@ -133,7 +141,11 @@ impl<'a, W: Write> Resolver<'a, W> {
         Ok(())
     }
 
-    pub fn resolve_expr(&mut self, expr: &'a Expr) -> ResolveResult {
+    pub fn resolve_expr<W: Write>(
+        &mut self,
+        expr: &Expr,
+        interpreter: &mut Interpreter<W>,
+    ) -> ResolveResult {
         match expr {
             Expr::Nil | Expr::Int(_) | Expr::Float(_) | Expr::Boolean(_) | Expr::String(_) => {}
             Expr::Ident(id) => {
@@ -147,38 +159,38 @@ impl<'a, W: Write> Resolver<'a, W> {
                         _ => {}
                     };
                 }
-                self.resolve_local(id)?
+                self.resolve_local(id, interpreter)?
             }
             Expr::Unary(_, e) => {
-                self.resolve_expr(e)?;
+                self.resolve_expr(e, interpreter)?;
             }
             Expr::Binary(_, e1, e2) | Expr::Logical(_, e1, e2) => {
-                self.resolve_expr(e1)?;
-                self.resolve_expr(e2)?;
+                self.resolve_expr(e1, interpreter)?;
+                self.resolve_expr(e2, interpreter)?;
             }
             Expr::Assign(ident, e) => {
-                self.resolve_expr(e)?;
+                self.resolve_expr(e, interpreter)?;
                 if let Expr::Ident(ref id) = **ident {
-                    self.resolve_local(id)?;
+                    self.resolve_local(id, interpreter)?;
                 } else {
                     unreachable!()
                 };
             }
             Expr::Call(callee, args) => {
-                self.resolve_expr(callee)?;
+                self.resolve_expr(callee, interpreter)?;
                 for arg in args {
-                    self.resolve_expr(&arg.value)?;
+                    self.resolve_expr(&arg.value, interpreter)?;
                 }
             }
             Expr::Lambda(params, body) => {
-                self.resolve_function(params, body, FunctionType::Function)?
+                self.resolve_function(params, body, FunctionType::Function, interpreter)?
             }
             Expr::Get(object, _fields) => {
-                self.resolve_expr(object)?;
+                self.resolve_expr(object, interpreter)?;
             }
             Expr::Set(object, _, value) => {
-                self.resolve_expr(value)?;
-                self.resolve_expr(object)?;
+                self.resolve_expr(value, interpreter)?;
+                self.resolve_expr(object, interpreter)?;
             }
             Expr::This(this) => {
                 if self.current_class == ClassType::None {
@@ -186,7 +198,7 @@ impl<'a, W: Write> Resolver<'a, W> {
                         "can't use 'this' outside class context"
                     )));
                 }
-                self.resolve_local(this)?
+                self.resolve_local(this, interpreter)?
             }
             Expr::Super(super_class, _method) => {
                 if self.current_class == ClassType::None {
@@ -194,26 +206,32 @@ impl<'a, W: Write> Resolver<'a, W> {
                         "can't use 'super' outside class context"
                     )));
                 }
-                self.resolve_local(super_class)?;
+                self.resolve_local(super_class, interpreter)?;
             }
         }
         Ok(())
     }
 
-    pub fn resolve(&mut self, stmts: &'a [Stmt]) -> ResolveResult {
+    pub fn resolve<W: Write>(
+        &mut self,
+        stmts: &[Stmt],
+        interpreter: &mut Interpreter<W>,
+    ) -> ResolveResult {
         for stmt in stmts {
-            self.resolve_stmt(stmt)?;
+            self.resolve_stmt(stmt, interpreter)?;
         }
         Ok(())
     }
 
-    pub fn resolve_local(&mut self, id: &Identifier) -> ResolveResult {
-        for i in (0..self.scopes.len()).rev() {
-            let scope = unsafe { self.scopes.get_unchecked(i) };
+    pub fn resolve_local<W: Write>(
+        &mut self,
+        id: &Identifier,
+        interpreter: &mut Interpreter<W>,
+    ) -> ResolveResult {
+        for (i, scope) in self.scopes.iter().rev().enumerate() {
             match scope.get(&id.ident as &str) {
                 Some(_) => {
-                    self.interpreter
-                        .resolve(id.clone(), self.scopes.len() - 1 - i);
+                    interpreter.resolve(id.clone(), i);
                     return Ok(());
                 }
                 None => {
@@ -228,11 +246,12 @@ impl<'a, W: Write> Resolver<'a, W> {
         )))
     }
 
-    fn resolve_function(
+    fn resolve_function<W: Write>(
         &mut self,
-        params: &'a [Identifier],
-        body: &'a [Stmt],
+        params: &[Identifier],
+        body: &[Stmt],
         ftype: FunctionType,
+        interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         let enclosing_function = self.current_function;
         self.current_function = ftype;
@@ -243,7 +262,7 @@ impl<'a, W: Write> Resolver<'a, W> {
             self.define(param);
         }
 
-        self.resolve(body)?;
+        self.resolve(body, interpreter)?;
 
         self.end_scope();
         self.current_function = enclosing_function;
@@ -258,15 +277,15 @@ impl<'a, W: Write> Resolver<'a, W> {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, name: &'a Identifier) {
+    fn declare(&mut self, name: &Identifier) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(&name.ident, false);
+            scope.insert(name.ident.clone(), false);
         }
     }
 
-    fn define(&mut self, name: &'a Identifier) {
+    fn define(&mut self, name: &Identifier) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(&name.ident, true);
+            scope.insert(name.ident.clone(), true);
         }
     }
 }

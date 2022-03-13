@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs::read_to_string;
 use std::io::stdout;
 use std::io::Write;
 use std::rc::Rc;
@@ -17,15 +18,15 @@ mod env;
 use env::EnvInner;
 type Env = Rc<RefCell<EnvInner>>;
 
-pub fn new_env() -> Env {
+fn new_env() -> Env {
     Rc::new(RefCell::new(EnvInner::new()))
 }
 
-pub fn push_env(env: Env) -> Env {
+fn push_env(env: Env) -> Env {
     Rc::new(RefCell::new(EnvInner::detach_env(env)))
 }
 
-pub fn pop_env(env: Env) -> Env {
+fn pop_env(env: Env) -> Env {
     env.borrow()
         .enclosing
         .as_ref()
@@ -67,7 +68,7 @@ extern crate uuid;
 use uuid::Uuid;
 
 lazy_static! {
-    pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
         vec![
             ("and", TokenType::And),
             ("class", TokenType::Class),
@@ -91,8 +92,9 @@ lazy_static! {
     };
 }
 
-pub fn prompt() -> Result<()> {
+fn prompt() {
     let mut interpreter = Interpreter::new(stdout());
+    let mut resolver = Resolver::new();
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
@@ -101,7 +103,7 @@ pub fn prompt() -> Result<()> {
         match rl.readline("> ") {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                match runline(line, &mut interpreter) {
+                match runline(line, &mut interpreter, &mut resolver) {
                     Err(e) => {
                         println!("Error in repl: {}", e);
                         continue;
@@ -117,17 +119,50 @@ pub fn prompt() -> Result<()> {
         }
     }
     rl.save_history("history.txt").unwrap();
-    Ok(())
 }
 
-fn runline<W: Write>(line: String, interpreter: &mut Interpreter<W>) -> Result<()> {
+fn runline<W: Write>(
+    line: String,
+    interpreter: &mut Interpreter<W>,
+    resolver: &mut Resolver,
+) -> Result<()> {
     let lexer = Lexer::new(line.chars()).unwrap();
     let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
     let tokens = tokens?;
     let stmts = Parser::new(tokens.into_iter()).program()?;
-    let mut resolver = Resolver::new(interpreter);
-    resolver.resolve(&stmts)?;
+    resolver.resolve(&stmts, interpreter)?;
+    interpreter.run_many(stmts)?;
+    Ok(())
+}
+
+fn runfile_stdout(file: &str) {
+    let mut interpreter = Interpreter::new(stdout());
+    runfile(file, &mut interpreter)
+        .unwrap_or_else(|e| panic!("unable to interpret file {} with error {}", file, e));
+}
+
+fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()> {
+    let program = read_to_string(file).map_err(|e| {
+        ErrorOrCtxJmp::Error(anyhow!("unable to read file {} with error {}", file, e))
+    })?;
+    let lexer = Lexer::new(program.chars()).unwrap();
+    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+    let tokens = tokens?;
+    let stmts = Parser::new(tokens.into_iter()).program()?;
+    let mut resolver = Resolver::new();
+    resolver.resolve(&stmts, interpreter)?;
     interpreter.run_many(stmts)
+}
+
+pub struct Runner {}
+
+impl Runner {
+    pub fn run(file: Option<&String>) {
+        match file {
+            Some(s) => runfile_stdout(s as &str),
+            None => prompt(),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -139,7 +174,7 @@ pub enum ErrorOrCtxJmp {
     RetJump { object: Object },
 }
 
-pub type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;
+type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;
 
 #[cfg(test)]
 mod test_utils {

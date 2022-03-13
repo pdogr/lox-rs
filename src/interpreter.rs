@@ -211,8 +211,10 @@ mod tests {
                         .expect("parsing error");
 
                     let mut interpreter = Interpreter::new(fake_stdout.clone());
-                    let mut resolver = Resolver::new(&mut interpreter);
-                    resolver.resolve(&stmts).expect("variable resolution error");
+                    let mut resolver = Resolver::new();
+                    resolver
+                        .resolve(&stmts, &mut interpreter)
+                        .expect("variable resolution error");
 
                     interpreter.run_many(stmts).expect("interpret error");
                 }
