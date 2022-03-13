@@ -10,7 +10,7 @@ macro_rules! regex {
     }};
 }
 
-fn extract_expected_data(line_num: usize, line: &str) -> Option<String> {
+fn extract_expected_data(_line_num: usize, line: &str) -> Option<String> {
     if let Some(cap) = regex!(r"// expect: ?(.*)").captures_iter(line).next() {
         let capture = &cap[1];
         return Some(capture.to_string());
@@ -18,7 +18,7 @@ fn extract_expected_data(line_num: usize, line: &str) -> Option<String> {
 
     if let Some(cap) = regex!(r"// (Error.*)").captures_iter(line).next() {
         let capture = &cap[1];
-        return Some(format!("[line {line_num}] {capture}"));
+        return Some(format!("{capture}"));
     }
 
     if let Some(cap) = regex!(r"// \[((java|c) )?line (\d+)\] (Error.*)")
@@ -28,9 +28,8 @@ fn extract_expected_data(line_num: usize, line: &str) -> Option<String> {
         if let Some("c") = cap.get(2).map(|m| m.as_str()) {
             return None;
         }
-        let line_num = &cap[3];
         let capture = &cap[4];
-        return Some(format!("[line {line_num}] {capture}"));
+        return Some(format!("{capture}"));
     }
 
     if let Some(cap) = regex!(r"// expect runtime error: (.+)")
@@ -45,9 +44,8 @@ fn extract_expected_data(line_num: usize, line: &str) -> Option<String> {
         .captures_iter(line)
         .next()
     {
-        let line_num = &cap[1];
         let capture = &cap[2];
-        return Some(format!("[line {line_num}] {capture}"));
+        return Some(format!("{capture}"));
     }
 
     if let Some(cap) = regex!(r"(\[line \d+\])").captures_iter(line).next() {
@@ -81,7 +79,7 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     Ok(())
 }
 
-#[dir_cases("data/operator")]
+#[dir_cases("data/operator", "data/assignment", "data/nil")]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
     if path.ends_with("decimal_point_at_eof.lox")

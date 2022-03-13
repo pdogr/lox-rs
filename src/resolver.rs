@@ -173,7 +173,9 @@ impl Resolver {
                 if let Expr::Ident(ref id) = **ident {
                     self.resolve_local(id, interpreter)?;
                 } else {
-                    unreachable!()
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at '=': Invalid assignment target."
+                    )));
                 };
             }
             Expr::Call(callee, args) => {
@@ -241,8 +243,8 @@ impl Resolver {
         }
 
         Err(ErrorOrCtxJmp::Error(anyhow!(
-            "variable {} not find in any of scope",
-            id
+            "Undefined variable '{}'.",
+            id.ident
         )))
     }
 
