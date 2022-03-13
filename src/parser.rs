@@ -600,7 +600,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let method = self.identifier()?;
                 Expr::Super("super".to_string().into(), method)
             }
-            _ => unreachable!(),
+            elt => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at '{}': Expect expression.",
+                    elt
+                )))
+            }
         })
     }
 }
