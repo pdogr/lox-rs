@@ -52,7 +52,7 @@ impl<W: Write> Callable<W> for FuncObject {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         if args.len() != self.params.len() {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
-                "expected {} arguments, got {} arguments",
+                "Expected {} arguments but got {}.",
                 self.params.len(),
                 args.len()
             )));

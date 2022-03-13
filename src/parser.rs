@@ -33,6 +33,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 self.i.next();
                 Ok(())
             }
+            Some(actual) => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at '{}': {}",
+                    actual,
+                    err
+                )))
+            }
             _ => return Err(ErrorOrCtxJmp::Error(anyhow!("{}", err))),
         }
     }
@@ -121,15 +128,28 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.expect(TokenType::Fun, "expected fun as function declaration")?;
         let name = self.identifier()?;
 
-        self.expect(TokenType::LeftParen, "expected ( after function name")?;
+        self.expect(TokenType::LeftParen, "Expect '(' after function name")?;
         let params = if !self.peek_expect(TokenType::RightParen) {
             self.parameters()?
         } else {
             Vec::new()
         };
 
-        self.expect(TokenType::RightParen, "expected ) after function params")?;
-        let body = self.block()?;
+        self.expect(TokenType::RightParen, "Expect ')' after parameters.")?;
+        let body = match self.i.peek() {
+            Some(tok) if tok.ty == TokenType::LeftBrace => self.block()?,
+            Some(tok) => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at '{}': Expect '{{' before function body.",
+                    tok
+                )))
+            }
+            _ => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Expect '{{' before function body."
+                )))
+            }
+        };
 
         let stmts = if let Stmt::Block(stmts) = body {
             stmts
@@ -162,7 +182,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             match tok.ty {
                 TokenType::Comma => {
                     self.next_token()?;
-                    params.push(self.identifier()?);
+                    if params.len() >= 255 {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "Error at '{}': Can't have more than 255 parameters.",
+                            self.i.peek().unwrap()
+                        )));
+                    } else {
+                        params.push(self.identifier()?);
+                    }
                 }
                 _ => break,
             }
@@ -528,15 +555,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             match tok.ty {
                 TokenType::Comma => {
                     self.next_token()?;
-                    args.push(self.expression()?.into());
+                    if args.len() >= 255 {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "Error at '{}': Can't have more than 255 arguments.",
+                            self.i.peek().unwrap()
+                        )));
+                    } else {
+                        args.push(self.expression()?.into());
+                    }
                 }
                 _ => break,
-            }
-            if args.len() >= 255 {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected lotta arguments, at max 255 supported, got {} args",
-                    args.len()
-                )));
             }
         }
         Ok(args)

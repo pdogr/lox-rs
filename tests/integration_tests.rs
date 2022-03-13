@@ -91,6 +91,7 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     "data/expressions",
     "data/field",
     "data/for",
+    "data/function",
     "data/nil",
     "data/operator",
     "data/print"

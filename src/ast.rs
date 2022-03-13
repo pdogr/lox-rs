@@ -264,8 +264,8 @@ impl Debug for FuncObject {
 impl Display for FuncObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.name {
-            Some(ref name) => write!(f, "fun@{}", name),
-            None => write!(f, "closure@"),
+            Some(ref name) => write!(f, "<fn {}>", name),
+            None => write!(f, "<closure>"),
         }
     }
 }
