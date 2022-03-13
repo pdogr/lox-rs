@@ -100,7 +100,8 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     "data/number",
     "data/operator",
     "data/print",
-    "data/return"
+    "data/return",
+    "data/string"
 )]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {

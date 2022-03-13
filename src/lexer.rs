@@ -143,7 +143,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                         let literal: String = self.take_while(|c| c != '"').into_iter().collect();
                         if !self.match_nth(0, |c| c == '"') {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
-                                "string literal unterminated"
+                                "Error: Unterminated string."
                             )));
                         }
                         self.skip(1);

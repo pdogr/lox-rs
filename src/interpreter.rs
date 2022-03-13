@@ -645,4 +645,15 @@ mod tests {
         "#,
         "\"super\"\n\"child\"\n"
     );
+
+    test_interpret_ok!(
+        multiline_string,
+        r#"
+var a = "1
+2
+3";
+print a;
+        "#,
+        "\"1\n2\n3\"\n"
+    );
 }
