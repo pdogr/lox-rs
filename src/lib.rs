@@ -137,8 +137,12 @@ fn runline<W: Write>(
 
 fn runfile_stdout(file: &str) {
     let mut interpreter = Interpreter::new(stdout());
-    runfile(file, &mut interpreter)
-        .unwrap_or_else(|e| panic!("unable to interpret file {} with error {}", file, e));
+    match runfile(file, &mut interpreter) {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!("{}", e);
+        }
+    }
 }
 
 fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()> {

@@ -386,6 +386,6 @@ impl Display for Object {
 impl Object {
     pub fn is_truth(&self) -> bool {
         use Object::*;
-        !matches!(self, Nil | Boolean(false) | Int(0))
+        !matches!(self, Nil | Boolean(false))
     }
 }
