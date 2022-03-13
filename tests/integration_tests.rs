@@ -79,7 +79,15 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     Ok(())
 }
 
-#[dir_cases("data/operator", "data/assignment", "data/nil", "data/print")]
+#[dir_cases(
+    "data/assignment",
+    "data/block",
+    "data/bool",
+    "data/call",
+    "data/nil",
+    "data/operator",
+    "data/print"
+)]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
     if path.ends_with("decimal_point_at_eof.lox")

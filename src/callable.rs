@@ -37,9 +37,8 @@ impl Arity for Object {
             Object::Class(c) => c.arity(),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected function got {}",
-                    self,
-                )))
+                    "Can only call functions and classes.",
+                )));
             }
         }
     }
@@ -121,8 +120,7 @@ impl<W: Write> Callable<W> for Object {
             Object::Class(c) => c.call(args, ctx),
             _ => {
                 return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "expected function in callable got {}",
-                    self
+                    "Can only call functions and classes.",
                 )));
             }
         }
