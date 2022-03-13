@@ -48,14 +48,10 @@ impl Evaluator {
                 ) {
                     (Minus, Int(i)) => Int(-i),
                     (Minus, Float(f)) => Float(-f),
-                    (Minus, object) => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "- not implemented for {}",
-                            object
-                        )))
-                    }
-
                     (Not, object) => Boolean(!object.is_truth()),
+                    (Minus, _) => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!("Operand must be a number.")));
+                    }
                 }
             }
             Expr::Binary(bop, e1, e2) => {
@@ -75,6 +71,11 @@ impl Evaluator {
                     (Div, Int(a), Float(b)) => Float(a as f64 / b),
                     (Add, Float(a), Int(b)) => Float(a + b as f64),
                     (Add, Float(a), Float(b)) => Float(a + b),
+                    (Add, _, _) => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!(
+                            "Operands must be two numbers or two strings."
+                        )))
+                    }
                     (Sub, Float(a), Int(b)) => Float(a - b as f64),
                     (Sub, Float(a), Float(b)) => Float(a - b),
                     (Mul, Float(a), Int(b)) => Float(a * b as f64),
@@ -91,6 +92,9 @@ impl Evaluator {
                     (Ge, Float(a), Float(b)) => Boolean(a >= b),
                     (Eq, a, b) => Boolean(a == b),
                     (Ne, a, b) => Boolean(a != b),
+                    (Sub | Mul | Div | Lt | Gt | Le | Ge, _, _) => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!("Operands must be numbers.")));
+                    }
                     (bop, o1, o2) => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
                             "unexpected binary operation {} with operands {}, {}",

@@ -38,7 +38,7 @@ fn extract_expected_data(line_num: usize, line: &str) -> Option<String> {
         .next()
     {
         let capture = &cap[1];
-        return Some(format!("{capture}\n[line {line_num}]"));
+        return Some(format!("{capture}"));
     }
 
     if let Some(cap) = regex!(r"\[.*line (\d+)\] (Error.+)")
@@ -70,7 +70,7 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     }
 
     let output = Command::new(bin_path)
-        .arg(&format!("../{source_file}"))
+        .arg(&format!("{source_file}"))
         .output()?;
 
     let output = String::from_utf8(output.stdout)?;
@@ -93,6 +93,6 @@ fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Bo
 
     let name = env::var("CARGO_PKG_NAME")?;
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
-    let bin_path = format!("{manifest_dir}/../target/debug/{name}");
+    let bin_path = format!("{manifest_dir}/target/debug/{name}");
     run_test(&bin_path, path, contents)
 }

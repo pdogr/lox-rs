@@ -140,7 +140,7 @@ fn runfile_stdout(file: &str) {
     match runfile(file, &mut interpreter) {
         Ok(()) => {}
         Err(e) => {
-            eprintln!("{}", e);
+            println!("{}", e);
         }
     }
 }
