@@ -60,16 +60,15 @@ impl<W: Write> Interpreter<W> {
                 else_branch,
             }) => {
                 let cond = Evaluator::evaluate(cond, Rc::clone(&self.env), self)?;
-                match cond {
-                    Object::Boolean(true) => {
+                match cond.is_truth() {
+                    true => {
                         self.run(*if_branch)?;
                     }
-                    Object::Boolean(false) => {
+                    false => {
                         if let Some(else_branch) = else_branch {
                             self.run(*else_branch)?;
                         }
                     }
-                    x => return Err(ErrorOrCtxJmp::Error(anyhow!("expected bool found {}", x))),
                 };
             }
             Stmt::Loop(Loop { cond, body }) => loop {

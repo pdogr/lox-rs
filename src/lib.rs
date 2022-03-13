@@ -152,7 +152,6 @@ fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()>
     let lexer = Lexer::new(program.chars()).unwrap();
     let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
     let tokens = tokens?;
-    dbg!(&tokens);
     let stmts = Parser::new(tokens.into_iter()).program()?;
     let mut resolver = Resolver::new();
     resolver.resolve(&stmts, interpreter)?;

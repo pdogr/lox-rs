@@ -321,10 +321,44 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             TokenType::RightParen,
             "condition in if statement must end with )",
         )?;
-        let if_branch = self.statement()?;
+        let if_branch = match self.i.peek() {
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Fun => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'fun': Expect expression."
+                )))
+            }
+            Some(tok) if tok.ty == TokenType::Class => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at 'class'. Expect expression."
+                )))
+            }
+            _ => self.statement()?,
+        };
         let else_branch = if self.peek_expect(TokenType::Else) {
             self.next_token()?;
-            Some(Box::new(self.statement()?))
+            Some(Box::new(match self.i.peek() {
+                Some(tok) if tok.ty == TokenType::Class => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at 'class': Expect expression."
+                    )))
+                }
+                Some(tok) if tok.ty == TokenType::Fun => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at 'fun': Expect expression."
+                    )))
+                }
+                Some(tok) if tok.ty == TokenType::Class => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at 'class'. Expect expression."
+                    )))
+                }
+                _ => self.statement()?,
+            }))
         } else {
             None
         };
