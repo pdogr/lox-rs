@@ -98,7 +98,7 @@ impl<W: Write> Callable<W> for ClassObject {
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         if args.len() != self.arity().unwrap() {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
-                "wrong number of arguments in class constructor\n expected arguments{} got {}",
+                "Expected {} arguments but got {}.",
                 self.arity().unwrap(),
                 args.len()
             )));

@@ -317,7 +317,7 @@ pub struct ClassInstance {
 
 impl Display for ClassInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "instance@{}", self.class.name)
+        write!(f, "<instance@{}>", self.class.name)
     }
 }
 

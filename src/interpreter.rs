@@ -485,7 +485,7 @@ mod tests {
         var bagel = Bagel();
         print bagel;
         "#,
-        "instance@Bagel\n"
+        "<instance@Bagel>\n"
     );
 
     test_interpret_ok!(
@@ -531,7 +531,7 @@ mod tests {
         var method = Egotist().speak;
         method();
         "#,
-        "instance@Egotist\n"
+        "<instance@Egotist>\n"
     );
 
     test_interpret_ok!(
@@ -564,7 +564,7 @@ mod tests {
         var cb = Thing().getCallback();
         cb();
         "#,
-        "instance@Thing\n"
+        "<instance@Thing>\n"
     );
 
     test_interpret_ok!(
@@ -594,7 +594,7 @@ mod tests {
         var foo = Foo();
         print foo.init();
         "#,
-        "instance@Foo\ninstance@Foo\ninstance@Foo\n"
+        "<instance@Foo>\n<instance@Foo>\n<instance@Foo>\n"
     );
 
     test_interpret_ok!(

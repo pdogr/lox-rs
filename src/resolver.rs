@@ -88,9 +88,9 @@ impl Resolver {
                     )));
                 }
 
-                if self.current_function == FunctionType::Initializer {
+                if self.current_function == FunctionType::Initializer && expr != &Expr::Nil {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "can't return a value from top level code"
+                        "Error at 'return': Can't return a value from an initializer."
                     )));
                 }
 
@@ -130,7 +130,7 @@ impl Resolver {
                     .unwrap()
                     .insert("this".to_string(), true);
                 for method in methods {
-                    let declaration = if method.name.ident == "this" {
+                    let declaration = if method.name.ident == "init" {
                         FunctionType::Initializer
                     } else {
                         FunctionType::ClassMethod

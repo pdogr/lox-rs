@@ -87,6 +87,7 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
     "data/class",
     "data/closure",
     "data/comments",
+    "data/constructor",
     "data/nil",
     "data/operator",
     "data/print"
