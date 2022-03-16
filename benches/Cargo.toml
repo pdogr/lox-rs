@@ -1,0 +1,18 @@
+[package]
+name = "benches"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lox-interpreter = { path = "../interpreter"}
+criterion = "0.3"
+bench_helper = { path = "../bench_helper" }
+
+[[bench]]
+name = "loop"
+harness = false
+
+[[bench]]
+name = "instantiation"
+harness = false
+

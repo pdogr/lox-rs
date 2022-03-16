@@ -5,8 +5,8 @@ members = [
     "interpreter",
     "lexer",
     "parser",
-
-				"bench_helper",
+    "benches",
+    "bench_helper",
 ]
 
 [profile.release]
