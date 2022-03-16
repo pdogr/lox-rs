@@ -1,8 +1,7 @@
 use std::iter::Iterator;
 
-use crate::anyhow;
 use crate::token::*;
-use crate::ErrorOrCtxJmp;
+use crate::LexerErrorKind;
 use crate::PeekMore;
 use crate::PeekMoreIterator;
 use crate::Result;
@@ -86,6 +85,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
         taken
     }
 
+    #[inline(always)]
     fn next_token(&mut self) -> Result<Token> {
         use TokenType::*;
         loop {
@@ -142,9 +142,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                     '"' => {
                         let literal: String = self.take_while(|c| c != '"').into_iter().collect();
                         if !self.match_nth(0, |c| c == '"') {
-                            return Err(ErrorOrCtxJmp::Error(anyhow!(
-                                "Error: Unterminated string."
-                            )));
+                            return Err(LexerErrorKind::UnterminatedStringLiteral);
                         }
                         self.skip(1);
                         return Ok(Token::new_with_lexeme(Str, &literal));
@@ -169,11 +167,8 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                         let ty = KEYWORDS.get(&identifier as &str).unwrap_or(&Ident);
                         return Ok(Token::new_with_lexeme(*ty, &identifier));
                     }
-                    x => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "Error in lexing: Found unexpected token {}",
-                            x
-                        )))
+                    ch => {
+                        return Err(LexerErrorKind::UnexpectedChar { ch });
                     }
                 },
                 None => return Ok(Token::new(Eof)),

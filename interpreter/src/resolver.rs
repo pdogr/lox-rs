@@ -6,7 +6,6 @@ use crate::ast::*;
 use crate::ErrorOrCtxJmp;
 use crate::Interpreter;
 use crate::Result;
-use crate::Stmt;
 
 pub type ResolveResult = Result<()>;
 

@@ -105,8 +105,8 @@ impl Display for TokenType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
-    pub(crate) ty: TokenType,
-    pub(crate) lexeme: String,
+    pub ty: TokenType,
+    pub lexeme: String,
 }
 
 impl Token {

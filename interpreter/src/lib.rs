@@ -1,38 +1,26 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::stdout;
 use std::io::Write;
-use std::rc::Rc;
 
+extern crate anyhow;
 use anyhow::anyhow;
 
+extern crate lox_ast as ast;
+
+extern crate lox_lexer as lexer;
+use lexer::Lexer;
+
+extern crate lox_parser as parser;
+use parser::Parser;
+
+extern crate rustyline;
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+
+extern crate thiserror;
 use thiserror::Error;
 
-mod ast;
-use ast::*;
-
 mod callable;
-
-mod env;
-use env::EnvInner;
-type Env = Rc<RefCell<EnvInner>>;
-
-fn new_env() -> Env {
-    Rc::new(RefCell::new(EnvInner::new()))
-}
-
-fn push_env(env: Env) -> Env {
-    Rc::new(RefCell::new(EnvInner::detach_env(env)))
-}
-
-fn pop_env(env: Env) -> Env {
-    env.borrow()
-        .enclosing
-        .as_ref()
-        .expect("no enclosing env")
-        .clone()
-}
 
 mod evaluator;
 use evaluator::EvalResult;
@@ -41,56 +29,8 @@ use evaluator::Evaluator;
 mod interpreter;
 use interpreter::Interpreter;
 
-mod lexer;
-use lexer::Lexer;
-
-mod parser;
-use parser::Parser;
-
 mod resolver;
 use resolver::Resolver;
-
-mod token;
-use token::Token;
-use token::TokenType;
-
-extern crate peekmore;
-use peekmore::PeekMore;
-use peekmore::PeekMoreIterator;
-
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
-
-extern crate lazy_static;
-use lazy_static::lazy_static;
-
-extern crate uuid;
-use uuid::Uuid;
-
-lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
-        vec![
-            ("and", TokenType::And),
-            ("class", TokenType::Class),
-            ("else", TokenType::Else),
-            ("false", TokenType::False),
-            ("for", TokenType::For),
-            ("fun", TokenType::Fun),
-            ("if", TokenType::If),
-            ("nil", TokenType::Nil),
-            ("or", TokenType::Or),
-            ("print", TokenType::Print),
-            ("return", TokenType::Return),
-            ("super", TokenType::Super),
-            ("this", TokenType::This),
-            ("true", TokenType::True),
-            ("var", TokenType::Var),
-            ("while", TokenType::While),
-        ]
-        .into_iter()
-        .collect()
-    };
-}
 
 fn prompt() {
     let mut interpreter = Interpreter::new(stdout());
@@ -126,10 +66,10 @@ fn runline<W: Write>(
     interpreter: &mut Interpreter<W>,
     resolver: &mut Resolver,
 ) -> Result<()> {
-    let lexer = Lexer::new(line.chars()).unwrap();
-    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
-    let tokens = tokens?;
-    let stmts = Parser::new(tokens.into_iter()).program()?;
+    let lexer = lexer::Lexer::new(line.chars()).unwrap();
+    let tokens: std::result::Result<Vec<lexer::Token>, _> = lexer.into_iter().collect();
+    let tokens: Vec<lexer::Token> = tokens?;
+    let stmts = parser::Parser::new(tokens.into_iter()).program()?;
     resolver.resolve(&stmts, interpreter)?;
     interpreter.run_many(stmts)?;
     Ok(())
@@ -150,7 +90,7 @@ fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()>
         ErrorOrCtxJmp::Error(anyhow!("unable to read file {} with error {}", file, e))
     })?;
     let lexer = Lexer::new(program.chars()).unwrap();
-    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+    let tokens: std::result::Result<Vec<lexer::Token>, _> = lexer.into_iter().collect();
     let tokens = tokens?;
     let stmts = Parser::new(tokens.into_iter()).program()?;
     let mut resolver = Resolver::new();
@@ -172,10 +112,19 @@ impl Runner {
 #[derive(Debug, Error)]
 pub enum ErrorOrCtxJmp {
     #[error("{0}")]
-    Error(anyhow::Error),
+    Error(#[from] anyhow::Error),
+
+    #[error("{0}")]
+    ParserError(#[from] parser::ParserErrorKind),
+
+    #[error("{0}")]
+    LexerError(#[from] lexer::LexerErrorKind),
+
+    #[error("{0}")]
+    EnvError(#[from] ast::EnvErrorKind),
 
     #[error("encountered a RetJump, this is a BUG.")]
-    RetJump { object: Object },
+    RetJump { object: ast::Object },
 }
 
 type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;

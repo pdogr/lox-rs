@@ -4,10 +4,8 @@ use std::rc::Rc;
 use crate::anyhow;
 use crate::ast::*;
 use crate::callable::Callable;
-use crate::Env;
 use crate::ErrorOrCtxJmp;
 use crate::Interpreter;
-use crate::Object;
 use crate::Result;
 
 pub type EvalResult = Result<Object>;
@@ -67,7 +65,10 @@ impl Evaluator {
                     (Sub, Int(a), Float(b)) => Float(a as f64 - b),
                     (Mul, Int(a), Int(b)) => Int(a * b),
                     (Mul, Int(a), Float(b)) => Float(a as f64 * b),
-                    (Div, Float(_) | Int(_), Float(0.0) | Int(0)) => {
+                    (Div, Float(_) | Int(_), Int(0)) => {
+                        return Err(ErrorOrCtxJmp::Error(anyhow!("Cannot divide by 0.",)))
+                    }
+                    (Div, Float(_) | Int(_), Float(f)) if f == 0.0 => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!("Cannot divide by 0.",)))
                     }
                     (Div, Int(a), Int(b)) => Int(a / b),
@@ -156,7 +157,7 @@ impl Evaluator {
                     .collect::<Result<Vec<_>>>()?;
                 callee.call(evaluated_args, interpreter)?
             }
-            Expr::Lambda(params, body) => Object::Function(crate::FuncObject::new_lambda(
+            Expr::Lambda(params, body) => Object::Function(ast::FuncObject::new_lambda(
                 params,
                 body,
                 interpreter.env.clone(),
@@ -227,11 +228,11 @@ impl Evaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::new_env;
     use crate::lexer::Lexer;
-    use crate::new_env;
+    use crate::lexer::Token;
     use crate::parser::Parser;
     use crate::test_utils::TestWriter;
-    use crate::Token;
 
     #[allow(unused_macros)]
     macro_rules! test_eval_expr_ok {
@@ -244,7 +245,7 @@ mod tests {
                     let env = new_env();
                     let input = $input;
                     let lexer = Lexer::new(input.chars()).unwrap();
-                    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+                    let tokens: std::result::Result<Vec<Token>, _> = lexer.into_iter().collect();
                     let tokens = tokens.expect("lexing error");
                     let ast = Parser::new(tokens.into_iter())
                         .expression()

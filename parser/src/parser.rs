@@ -1,12 +1,10 @@
 use std::iter::Peekable;
 
-use crate::anyhow;
 use crate::ast::*;
-use crate::ErrorOrCtxJmp;
+use crate::lexer::Token;
+use crate::lexer::TokenType;
+use crate::ParserErrorKind;
 use crate::Result;
-use crate::Stmt;
-use crate::Token;
-use crate::TokenType;
 
 type ParseResult = Result<Expr>;
 type ParseStmtResult = Result<Stmt>;
@@ -23,7 +21,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn next_token(&mut self) -> Result<Token> {
         match self.i.next() {
             Some(t) => Ok(t),
-            None => return Err(ErrorOrCtxJmp::Error(anyhow!("missing token"))),
+            None => Err(ParserErrorKind::MissingToken),
         }
     }
 
@@ -34,13 +32,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Ok(())
             }
             Some(actual) => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at '{}': {}",
-                    actual,
-                    err
-                )))
+                Err(ParserErrorKind::UnexpectedToken(actual.clone(), err.into()))
             }
-            _ => return Err(ErrorOrCtxJmp::Error(anyhow!("{}", err))),
+            _ => Err(ParserErrorKind::MissingTokenWithMsg(err.into())),
         }
     }
 
@@ -69,10 +63,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn class_decl(&mut self) -> ParseStmtResult {
-        self.expect(
-            TokenType::Class,
-            "expected class to begin class declaration",
-        )?;
+        self.next_token()?;
         let name = self.identifier("Expect identifier in class decl.")?;
 
         let super_class = if self.peek_expect(TokenType::Lt) {
@@ -138,17 +129,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.expect(TokenType::RightParen, "Expect ')' after parameters.")?;
         let body = match self.i.peek() {
             Some(tok) if tok.ty == TokenType::LeftBrace => self.block()?,
-            Some(tok) => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at '{}': Expect '{{' before function body.",
-                    tok
-                )))
-            }
-            _ => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Expect '{{' before function body."
-                )))
-            }
+            Some(tok) => return Err(ParserErrorKind::FunctionMissingLBraceFound(tok.clone())),
+            _ => return Err(ParserErrorKind::FunctionMissingLBrace),
         };
 
         let stmts = if let Stmt::Block(stmts) = body {
@@ -167,7 +149,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     fn identifier(&mut self, err: &str) -> Result<Identifier> {
         match self.next_token()? {
             t if t.ty == TokenType::Ident => Ok(t.lexeme.into()),
-            x => return Err(ErrorOrCtxJmp::Error(anyhow!("Error at '{}': {}", x, err))),
+            x => Err(ParserErrorKind::ExpectedIdentifierNotFound(x, err.into())),
         }
     }
 
@@ -178,17 +160,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 TokenType::Comma => {
                     self.next_token()?;
                     if params.len() >= 255 {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "Error at '{}': Can't have more than 255 parameters.",
-                            self.i.peek().unwrap()
-                        )));
+                        return Err(ParserErrorKind::ExcessParamtersFound(
+                            self.i.peek().unwrap().clone(),
+                        ));
                     } else {
                         let id = self.identifier("Expect parameter name.")?;
                         if params.iter().any(|i| i.ident == id.ident) {
-                            return Err(ErrorOrCtxJmp::Error(anyhow!(
-                                "Error at '{}': Already a variable with this name in this scope.",
-                                id.ident
-                            )));
+                            return Err(ParserErrorKind::DuplicateParamter(id.ident));
                         } else {
                             params.push(id);
                         }
@@ -282,23 +260,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.expect(TokenType::RightParen, "expected ) after for loop")?;
 
         let body = match self.i.peek() {
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class': Expect expression."
-                )))
+            Some(tok) if tok.ty == TokenType::Class || tok.ty == TokenType::Fun => {
+                return Err(ParserErrorKind::ExpectExpressionFound(match tok.ty {
+                    TokenType::Class => "class".into(),
+                    TokenType::Fun => "fun".into(),
+                    _ => unreachable!(),
+                }))
             }
-            Some(tok) if tok.ty == TokenType::Fun => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'fun': Expect expression."
-                )))
-            }
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class'. Expect expression."
-                )))
-            }
-            Some(_) => self.statement()?,
-            None => return Err(ErrorOrCtxJmp::Error(anyhow!("Expect expression."))),
+            _ => self.statement()?,
         };
         let loop_body = if let Some(update) = update {
             vec![body, Stmt::Expr(update)]
@@ -325,40 +294,24 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             "condition in if statement must end with )",
         )?;
         let if_branch = match self.i.peek() {
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class': Expect expression."
-                )))
-            }
-            Some(tok) if tok.ty == TokenType::Fun => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'fun': Expect expression."
-                )))
-            }
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class'. Expect expression."
-                )))
+            Some(tok) if tok.ty == TokenType::Class || tok.ty == TokenType::Fun => {
+                return Err(ParserErrorKind::ExpectExpressionFound(match tok.ty {
+                    TokenType::Class => "class".into(),
+                    TokenType::Fun => "fun".into(),
+                    _ => unreachable!(),
+                }))
             }
             _ => self.statement()?,
         };
         let else_branch = if self.peek_expect(TokenType::Else) {
             self.next_token()?;
             Some(Box::new(match self.i.peek() {
-                Some(tok) if tok.ty == TokenType::Class => {
-                    return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "Error at 'class': Expect expression."
-                    )))
-                }
-                Some(tok) if tok.ty == TokenType::Fun => {
-                    return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "Error at 'fun': Expect expression."
-                    )))
-                }
-                Some(tok) if tok.ty == TokenType::Class => {
-                    return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "Error at 'class'. Expect expression."
-                    )))
+                Some(tok) if tok.ty == TokenType::Class || tok.ty == TokenType::Fun => {
+                    return Err(ParserErrorKind::ExpectExpressionFound(match tok.ty {
+                        TokenType::Class => "class".into(),
+                        TokenType::Fun => "fun".into(),
+                        _ => unreachable!(),
+                    }))
                 }
                 _ => self.statement()?,
             }))
@@ -406,23 +359,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.expect(TokenType::While, "while loop must begin with while keyword")?;
         let cond = self.expression()?;
         let body = match self.i.peek() {
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class': Expect expression."
-                )))
+            Some(tok) if tok.ty == TokenType::Class || tok.ty == TokenType::Fun => {
+                return Err(ParserErrorKind::ExpectExpressionFound(match tok.ty {
+                    TokenType::Class => "class".into(),
+                    TokenType::Fun => "fun".into(),
+                    _ => unreachable!(),
+                }))
             }
-            Some(tok) if tok.ty == TokenType::Fun => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'fun': Expect expression."
-                )))
-            }
-            Some(tok) if tok.ty == TokenType::Class => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at 'class'. Expect expression."
-                )))
-            }
-            Some(_) => self.statement()?,
-            None => return Err(ErrorOrCtxJmp::Error(anyhow!("Expect expression."))),
+            _ => self.statement()?,
         };
 
         Ok(Stmt::Loop(Loop {
@@ -447,7 +391,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Ok(Stmt::Block(stmts))
     }
 
-    pub(crate) fn expression(&mut self) -> ParseResult {
+    pub fn expression(&mut self) -> ParseResult {
         self.assignment()
     }
 
@@ -612,10 +556,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 TokenType::Comma => {
                     self.next_token()?;
                     if args.len() >= 255 {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "Error at '{}': Can't have more than 255 arguments.",
-                            self.i.peek().unwrap()
-                        )));
+                        return Err(ParserErrorKind::ExcessArgumentsFound(
+                            self.i.peek().unwrap().clone(),
+                        ));
                     } else {
                         args.push(self.expression()?.into());
                     }
@@ -634,13 +577,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Ok(i) => Expr::Int(i),
                 Err(_) => match next.lexeme.parse::<f64>() {
                     Ok(f) => Expr::Float(f),
-                    Err(e) => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "unable to parse numerical {} as float with error {}",
-                            next.lexeme,
-                            e
-                        )))
-                    }
+                    Err(e) => return Err(ParserErrorKind::ParseFloatError(next.lexeme, e)),
                 },
             },
             TokenType::Nil => Expr::Nil,
@@ -683,12 +620,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let method = self.identifier("Expect superclass method name.")?;
                 Expr::Super("super".to_string().into(), method)
             }
-            elt => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at '{}': Expect expression.",
-                    elt
-                )))
-            }
+            _elt => return Err(ParserErrorKind::ExpectExpressionFound(next.lexeme)),
         })
     }
 }
@@ -697,7 +629,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 mod tests {
     use super::*;
     use crate::lexer::Lexer;
-    use crate::Token;
+    use crate::lexer::Token;
 
     #[allow(unused_macros)]
     macro_rules! test_parse {
@@ -706,7 +638,7 @@ mod tests {
             fn $name() {
                 let input = $input;
                 let lexer = Lexer::new(input.chars()).unwrap();
-                let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+                let tokens: std::result::Result<Vec<Token>, _> = lexer.into_iter().collect();
                 let tokens = tokens.expect("lexing error");
                 let ast = Parser::new(tokens.into_iter())
                     .expression()

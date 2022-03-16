@@ -56,20 +56,17 @@ fn extract_expected_data(_line_num: usize, line: &str) -> Option<String> {
     None
 }
 
-fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<dyn Error>> {
-    println!("{bin_path:?}");
+fn run_test(mut command: Command, source_file: &str, source: &str) -> Result<(), Box<dyn Error>> {
     let mut expected = String::new();
     for (line_idx, line) in source.lines().enumerate() {
         let line_num = line_idx + 1;
         if let Some(line) = extract_expected_data(line_num, line) {
-            dbg!(bin_path, source_file, &line);
+            dbg!(source_file, &line);
             expected.push_str(&format!("{line}\n"));
         }
     }
 
-    let output = Command::new(bin_path)
-        .arg(&format!("{source_file}"))
-        .output()?;
+    let output = command.arg(&format!("{source_file}")).output()?;
 
     let output = String::from_utf8(output.stdout)?;
 
@@ -111,16 +108,34 @@ fn run_test(bin_path: &str, source_file: &str, source: &str) -> Result<(), Box<d
 )]
 #[test]
 fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
-    if path.ends_with("decimal_point_at_eof.lox")
-        || path.ends_with("equals_class.lox")
-        || path.ends_with("equals_method.lox")
-    {
-        return Ok(());
+    dbg!(&path);
+    let mut binary_path =
+        env::current_exe().expect("need current binary path to find binary to test");
+    loop {
+        {
+            let parent = binary_path.parent();
+            if parent.is_none() {
+                panic!(
+                    "Failed to locate binary path from original path: {:?}",
+                    env::current_exe()
+                );
+            }
+            let parent = parent.unwrap();
+            if parent.is_dir() && parent.file_name().unwrap() == "target" {
+                break;
+            }
+        }
+        binary_path.pop();
     }
 
-    let name = env::var("CARGO_PKG_NAME")?;
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
+    binary_path.push(if cfg!(target_os = "windows") {
+        format!("interpreter_main.exe",)
+    } else {
+        "interpreter_main".into()
+    });
 
-    let bin_path = format!("{manifest_dir}/target/debug/{name}");
-    run_test(&bin_path, path, contents)
+    dbg!(&binary_path);
+    let command = Command::new(binary_path);
+
+    run_test(command, &format!("../{}", path), contents)
 }

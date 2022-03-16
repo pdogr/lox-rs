@@ -7,7 +7,6 @@ use crate::ast::*;
 use crate::ErrorOrCtxJmp;
 use crate::EvalResult;
 use crate::Interpreter;
-use crate::Object;
 use crate::Result;
 
 pub(crate) trait Arity {

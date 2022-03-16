@@ -2,9 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::anyhow;
 use crate::ast::*;
-use crate::ErrorOrCtxJmp;
+use crate::EnvErrorKind;
 use crate::Object;
 use crate::Result;
 
@@ -39,15 +38,11 @@ impl EnvInner {
         match up {
             0 => match env.values.get(&id.ident) {
                 Some(val) => Ok(Rc::clone(val)),
-                None => Err(ErrorOrCtxJmp::Error(anyhow!("Undefined variable {}", id))),
+                None => Err(EnvErrorKind::UndefinedVariable(id.clone())),
             },
             _ => match &env.enclosing {
                 Some(enclosing) => EnvInner::_get(&enclosing.borrow(), id, up - 1),
-                None => {
-                    return Err(ErrorOrCtxJmp::Error(anyhow!(
-                        "enclosing environment does not exist"
-                    )))
-                }
+                None => Err(EnvErrorKind::NoEnclosingEnv),
             },
         }
     }
@@ -67,10 +62,7 @@ impl EnvInner {
         {
             // TODO: make variable definition with an Option, to not have this workaround.
             Some(tok) if *tok.borrow() != Object::Nil => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "Error at '{}': Already a variable with this name in this scope.",
-                    name
-                )));
+                Err(EnvErrorKind::VariableExists(name))
             }
             _ => Ok(()),
         }

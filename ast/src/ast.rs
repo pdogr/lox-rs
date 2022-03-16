@@ -4,10 +4,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::anyhow;
 use crate::push_env;
 use crate::Env;
-use crate::ErrorOrCtxJmp;
+use crate::EnvErrorKind;
 use crate::Result;
 use crate::TokenType;
 use crate::Uuid;
@@ -87,8 +86,8 @@ impl From<TokenType> for BinaryOp {
 
 #[derive(Debug, Clone, PartialOrd, Ord)]
 pub struct Identifier {
-    pub(crate) ident: String,
-    tag: Uuid,
+    pub ident: String,
+    pub tag: Uuid,
 }
 
 impl PartialEq for Identifier {
@@ -116,7 +115,7 @@ impl From<String> for Identifier {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Argument {
-    pub(crate) value: Expr,
+    pub value: Expr,
 }
 
 impl From<Expr> for Argument {
@@ -157,35 +156,35 @@ impl Eq for Expr {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableDecl {
-    pub(crate) name: Identifier,
-    pub(crate) definition: Option<Expr>,
+    pub name: Identifier,
+    pub definition: Option<Expr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDecl {
-    pub(crate) name: Identifier,
-    pub(crate) params: Vec<Identifier>,
-    pub(crate) body: Vec<Stmt>,
+    pub name: Identifier,
+    pub params: Vec<Identifier>,
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conditional {
-    pub(crate) cond: Expr,
-    pub(crate) if_branch: Box<Stmt>,
-    pub(crate) else_branch: Option<Box<Stmt>>,
+    pub cond: Expr,
+    pub if_branch: Box<Stmt>,
+    pub else_branch: Option<Box<Stmt>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Loop {
-    pub(crate) cond: Expr,
-    pub(crate) body: Box<Stmt>,
+    pub cond: Expr,
+    pub body: Box<Stmt>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDecl {
-    pub(crate) name: Identifier,
-    pub(crate) super_class: Option<Expr>,
-    pub(crate) methods: Vec<FunctionDecl>,
+    pub name: Identifier,
+    pub super_class: Option<Expr>,
+    pub methods: Vec<FunctionDecl>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -203,11 +202,11 @@ pub enum Stmt {
 
 #[derive(Clone)]
 pub struct FuncObject {
-    pub(crate) name: Option<Identifier>,
-    pub(crate) params: Vec<Identifier>,
-    pub(crate) body: Vec<Stmt>,
-    pub(crate) closure: Env,
-    pub(crate) is_initializer: bool,
+    pub name: Option<Identifier>,
+    pub params: Vec<Identifier>,
+    pub body: Vec<Stmt>,
+    pub closure: Env,
+    pub is_initializer: bool,
 }
 
 impl FuncObject {
@@ -272,9 +271,9 @@ impl Display for FuncObject {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassObject {
-    pub(crate) name: Identifier,
-    pub(crate) super_class: Option<Box<ClassObject>>,
-    pub(crate) methods: HashMap<String, FuncObject>,
+    pub name: Identifier,
+    pub super_class: Option<Box<ClassObject>>,
+    pub methods: HashMap<String, FuncObject>,
 }
 
 impl Display for ClassObject {
@@ -345,10 +344,7 @@ impl ClassInstance {
             return Ok(Object::Function(FuncObject::bind(m, Rc::clone(&instance))?));
         }
 
-        return Err(ErrorOrCtxJmp::Error(anyhow!(
-            "Undefined property '{}'.",
-            property
-        )));
+        Err(EnvErrorKind::UndefinedProperty(property.into()))
     }
 
     pub fn set(&mut self, property: String, value: Object) {

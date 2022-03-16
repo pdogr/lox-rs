@@ -1,6 +1,6 @@
 use std::env::args;
 
-use jlox_rs::Runner;
+use lox_interpreter::Runner;
 
 fn main() {
     Runner::run(args().nth(1).as_ref());

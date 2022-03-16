@@ -4,15 +4,9 @@ use std::rc::Rc;
 
 use crate::anyhow;
 use crate::ast::*;
-use crate::new_env;
-use crate::pop_env;
-use crate::push_env;
-use crate::Env;
 use crate::ErrorOrCtxJmp;
 use crate::Evaluator;
-use crate::Object;
 use crate::Result;
-use crate::Stmt;
 
 #[derive(Debug)]
 pub struct Interpreter<W> {
@@ -187,10 +181,10 @@ mod tests {
     use super::*;
 
     use crate::lexer::Lexer;
+    use crate::lexer::Token;
     use crate::parser::Parser;
     use crate::test_utils::TestWriter;
     use crate::Resolver;
-    use crate::Token;
 
     #[allow(unused_macros)]
     macro_rules! test_interpret_ok {
@@ -201,7 +195,7 @@ mod tests {
                 {
                     let input = $input;
                     let lexer = Lexer::new(input.chars()).unwrap();
-                    let tokens: Result<Vec<Token>> = lexer.into_iter().collect();
+                    let tokens: std::result::Result<Vec<Token>, _> = lexer.into_iter().collect();
                     let tokens = tokens.expect("lexing error");
                     let stmts = Parser::new(tokens.into_iter())
                         .program()
