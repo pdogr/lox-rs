@@ -29,6 +29,12 @@ pub struct Resolver {
     current_class: ClassType,
 }
 
+impl Default for Resolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Resolver {
     pub fn new() -> Self {
         Self {

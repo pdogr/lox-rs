@@ -5,6 +5,12 @@ members = [
     "interpreter",
     "lexer",
     "parser",
+
+				"bench_helper",
 ]
+
+[profile.release]
+panic = "abort"
+
 
 
