@@ -16,3 +16,5 @@ harness = false
 name = "instantiation"
 harness = false
 
+[lib]
+

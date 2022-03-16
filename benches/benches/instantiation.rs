@@ -11,11 +11,11 @@ use lox_interpreter::Resolver;
 use bench_helper::instantiation_program;
 use bench_helper::TestWriter;
 
-mod constants;
+use benches::NUM_ITERS;
 
 fn instantiation_bench_fn(c: &mut Criterion) {
     let mut group = c.benchmark_group("instantiation");
-    for num_iter in constants::NUM_ITERS {
+    for num_iter in NUM_ITERS {
         let input = instantiation_program!(num_iter = num_iter);
         group.bench_with_input(BenchmarkId::from_parameter(num_iter), &input, |b, input| {
             let fake_stdout = TestWriter::new();

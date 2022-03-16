@@ -11,11 +11,11 @@ use lox_interpreter::Resolver;
 use bench_helper::loop_program;
 use bench_helper::TestWriter;
 
-mod constants;
+use benches::NUM_ITERS;
 
 fn loop_bench_fn(c: &mut Criterion) {
     let mut group = c.benchmark_group("loop");
-    for loop_size in constants::NUM_ITERS {
+    for loop_size in NUM_ITERS {
         let input = loop_program!(num_iter = loop_size);
         group.bench_with_input(
             BenchmarkId::from_parameter(loop_size),
