@@ -1,7 +1,8 @@
-use simple_test_case::dir_cases;
 use std::error::Error;
 use std::result::Result;
 use std::{env, process::Command};
+
+use simple_test_case::dir_cases;
 
 macro_rules! regex {
     ($re:literal $(,)?) => {{
@@ -107,7 +108,7 @@ fn run_test(mut command: Command, source_file: &str, source: &str) -> Result<(),
     "data/while"
 )]
 #[test]
-fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
+pub fn crafting_interpreters_test_suite(path: &str, contents: &str) -> Result<(), Box<dyn Error>> {
     dbg!(&path);
     let mut binary_path =
         env::current_exe().expect("need current binary path to find binary to test");
