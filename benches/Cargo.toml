@@ -3,7 +3,7 @@ name = "benches"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[dev-dependencies]
 lox-interpreter = { path = "../interpreter", artifact = "bin" }
 criterion = "0.3"
 bench_helper = { path = "../bench_helper" }
@@ -27,4 +27,5 @@ harness = false
 
 [lib]
 doctest = false
+bench = false
 

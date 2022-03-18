@@ -1,5 +1,3 @@
-extern crate paste;
-
 #[macro_export]
 macro_rules! generate_bench {
     ($bench_name: ident, $impl_name: literal, $binary_name: literal, $input_program:tt !, $($e: tt)*) => {
@@ -23,6 +21,3 @@ macro_rules! generate_bench {
         }
     };
 }
-/*
-            }
-*/

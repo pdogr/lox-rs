@@ -10,7 +10,7 @@ use paste::paste;
 
 use benches::generate_bench;
 
-generate_bench!(fib,  "lox-rs", "interpreter_main", fib_program!, [20,25,30]);
+generate_bench!(fib,  "lox-rs", "interpreter_main", fib_program!, [20,25]);
 
 criterion_group! {
     name = fib_benchs;

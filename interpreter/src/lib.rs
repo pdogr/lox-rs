@@ -70,6 +70,15 @@ fn runline<W: Write>(
     let tokens: std::result::Result<Vec<lexer::Token>, _> = lexer.into_iter().collect();
     let tokens: Vec<lexer::Token> = tokens?;
     let stmts = parser::Parser::new(tokens.into_iter()).program()?;
+    let stmts = if stmts.len() == 1 {
+        if let Some(ast::Stmt::Expr(ref e)) = stmts.get(0) {
+            vec![ast::Stmt::Print(e.clone())]
+        } else {
+            stmts
+        }
+    } else {
+        stmts
+    };
     resolver.resolve(&stmts, interpreter)?;
     interpreter.run_many(stmts)?;
     Ok(())
