@@ -18,12 +18,14 @@ pub(crate) trait Arity {
 }
 
 impl Arity for FuncObject {
+    #[inline(always)]
     fn arity(&self) -> Result<usize> {
         Ok(self.params.len())
     }
 }
 
 impl Arity for ClassObject {
+    #[inline(always)]
     fn arity(&self) -> Result<usize> {
         Ok(if let Some(init_method) = self.find_method("init") {
             init_method.arity()?
@@ -34,6 +36,7 @@ impl Arity for ClassObject {
 }
 
 impl Arity for Object {
+    #[inline(always)]
     fn arity(&self) -> Result<usize> {
         match self {
             Object::Function(f) => f.arity(),
@@ -52,6 +55,7 @@ pub(crate) trait Callable<W>: Arity {
 }
 
 impl<W: Write> Callable<W> for FuncObject {
+    #[inline(always)]
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         if args.len() != self.params.len() {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
@@ -101,6 +105,7 @@ impl<W: Write> Callable<W> for FuncObject {
 }
 
 impl<W: Write> Callable<W> for ClassObject {
+    #[inline(always)]
     fn call(&self, args: Vec<Object>, ctx: &mut Interpreter<W>) -> EvalResult {
         if args.len() != self.arity().unwrap() {
             return Err(ErrorOrCtxJmp::Error(anyhow!(

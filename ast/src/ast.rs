@@ -218,6 +218,7 @@ pub struct FuncObject {
 }
 
 impl FuncObject {
+    #[inline(always)]
     pub fn new(
         name: Identifier,
         params: Vec<Identifier>,
@@ -234,6 +235,7 @@ impl FuncObject {
         }
     }
 
+    #[inline(always)]
     pub fn new_lambda(params: Vec<Identifier>, body: Vec<Stmt>, closure: Env) -> Self {
         Self {
             name: None,
@@ -244,6 +246,7 @@ impl FuncObject {
         }
     }
 
+    #[inline(always)]
     pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> Result<Self> {
         let env = push_env(f.closure);
         env.borrow_mut().init_variable(
@@ -293,6 +296,7 @@ impl Display for ClassObject {
 }
 
 impl ClassObject {
+    #[inline(always)]
     pub fn new(
         name: Identifier,
         super_class: Option<Box<ClassObject>>,
@@ -305,6 +309,7 @@ impl ClassObject {
         }
     }
 
+    #[inline(always)]
     pub fn find_method(&self, property: &str) -> Option<FuncObject> {
         if let elt @ Some(_) = self.methods.get(property) {
             return elt.cloned();
@@ -331,6 +336,7 @@ impl Display for ClassInstance {
 }
 
 impl ClassInstance {
+    #[inline(always)]
     pub fn new_empty(class: ClassObject) -> Self {
         Self {
             class,
@@ -338,6 +344,7 @@ impl ClassInstance {
         }
     }
 
+    #[inline(always)]
     pub fn new(class: ClassObject, fields: Vec<(Identifier, Object)>) -> Self {
         Self {
             class,
@@ -348,6 +355,7 @@ impl ClassInstance {
         }
     }
 
+    #[inline(always)]
     pub fn get(property: &str, instance: Rc<RefCell<ClassInstance>>) -> Result<Object> {
         if let Some(o) = instance.borrow().fields.get(property) {
             return Ok(o.clone());
@@ -360,6 +368,7 @@ impl ClassInstance {
         Err(EnvErrorKind::UndefinedProperty(property.into()))
     }
 
+    #[inline(always)]
     pub fn set(&mut self, property: String, value: Object) {
         self.fields.insert(property, value);
     }
@@ -393,6 +402,7 @@ impl Display for Object {
 }
 
 impl Object {
+    #[inline(always)]
     pub fn is_truth(&self) -> bool {
         use Object::*;
         !matches!(self, Nil | Boolean(false))

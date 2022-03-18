@@ -15,14 +15,17 @@ mod env;
 use env::EnvInner;
 pub type Env = Rc<RefCell<EnvInner>>;
 
+#[inline(always)]
 pub fn new_env() -> Env {
     Rc::new(RefCell::new(EnvInner::new()))
 }
 
+#[inline(always)]
 pub fn push_env(env: Env) -> Env {
     Rc::new(RefCell::new(EnvInner::detach_env(env)))
 }
 
+#[inline(always)]
 pub fn pop_env(env: Env) -> Env {
     env.borrow()
         .enclosing
@@ -31,10 +34,12 @@ pub fn pop_env(env: Env) -> Env {
         .clone()
 }
 
+#[inline(always)]
 pub fn get_env(env: &EnvInner, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
     EnvInner::_get(env, id, up)
 }
 
+#[inline(always)]
 pub fn assign_env(env: &EnvInner, id: &Identifier, up: usize, value: Object) -> Result<()> {
     let old_value = EnvInner::_get(env, id, up)?;
     *old_value.borrow_mut() = value;

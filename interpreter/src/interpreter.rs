@@ -20,6 +20,7 @@ pub struct Interpreter<W> {
 }
 
 impl<W: Write> Interpreter<W> {
+    #[inline(always)]
     pub fn new(writer: W) -> Self {
         Self {
             writer,
@@ -29,6 +30,7 @@ impl<W: Write> Interpreter<W> {
         }
     }
 
+    #[inline(always)]
     fn run(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Print(expr) => {
@@ -148,15 +150,18 @@ impl<W: Write> Interpreter<W> {
         Ok(())
     }
 
+    #[inline(always)]
     pub fn get_distance(&self, id: &Identifier) -> usize {
         unsafe { *self.locals.get_unchecked(id.rid) }
     }
 
+    #[inline(always)]
     pub fn resolve(&mut self, id: &mut Identifier, distance: usize) {
         id.rid = self.locals.len();
         self.locals.push(distance);
     }
 
+    #[inline(always)]
     pub fn run_many(&mut self, stmts: &[Stmt]) -> Result<()> {
         for stmt in stmts {
             self.run(stmt)?;
@@ -164,11 +169,13 @@ impl<W: Write> Interpreter<W> {
         Ok(())
     }
 
+    #[inline(always)]
     pub(crate) fn save_env(&mut self, env: Env) {
         self.envs.push(Rc::clone(&self.env));
         self.env = env;
     }
 
+    #[inline(always)]
     pub(crate) fn reset_env(&mut self) {
         self.env = self
             .envs
@@ -176,10 +183,12 @@ impl<W: Write> Interpreter<W> {
             .expect("poping env from empty stack, this is a BUG");
     }
 
+    #[inline(always)]
     pub(crate) fn push_scope(&mut self) {
         self.env = push_env(Rc::clone(&self.env));
     }
 
+    #[inline(always)]
     pub(crate) fn pop_scope(&mut self) {
         self.env = pop_env(Rc::clone(&self.env));
     }

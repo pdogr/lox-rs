@@ -20,6 +20,7 @@ impl Default for EnvInner {
 }
 
 impl EnvInner {
+    #[inline(always)]
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
@@ -27,6 +28,7 @@ impl EnvInner {
         }
     }
 
+    #[inline(always)]
     pub fn detach_env(enclosing: Rc<RefCell<EnvInner>>) -> Self {
         Self {
             values: HashMap::new(),
@@ -34,11 +36,13 @@ impl EnvInner {
         }
     }
 
+    #[inline(always)]
     pub fn init_variable(&mut self, id: Identifier, o: Object) {
         self.values
             .insert(id.token.lexeme, Rc::new(RefCell::new(o)));
     }
 
+    #[inline(always)]
     pub(crate) fn _get(env: &EnvInner, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
         match up {
             0 => match env.values.get(&id.token.lexeme) {

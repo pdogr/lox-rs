@@ -17,6 +17,7 @@ pub type EvalResult = Result<Object>;
 pub struct Evaluator;
 
 impl Evaluator {
+    #[inline(always)]
     pub fn evaluate<W: Write>(
         expr: &Expr,
         env: Env,
