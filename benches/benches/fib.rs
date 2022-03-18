@@ -1,5 +1,5 @@
 use bench_helper::bench_cmd;
-use bench_helper::instantiation_program;
+use bench_helper::fib_program;
 use bench_helper::tif;
 use bench_helper::CommandUnderTest;
 use criterion::criterion_group;
@@ -10,12 +10,12 @@ use paste::paste;
 
 use benches::generate_bench;
 
-generate_bench!(instantiation,  "lox-rs", "interpreter_main", instantiation_program!, [10,100]);
+generate_bench!(fib,  "lox-rs", "interpreter_main", fib_program!, [20,25,30]);
 
 criterion_group! {
-    name = instantiation_benchs;
+    name = fib_benchs;
     config = Criterion::default().sample_size(20);
-    targets = instantiation_bench_fn,
+    targets = fib_bench_fn,
 }
 
-criterion_main!(instantiation_benchs);
+criterion_main!(fib_benchs);

@@ -87,3 +87,22 @@ $(
     }};
 
 }
+
+#[macro_export]
+macro_rules! fib_program{
+  ($($e:tt)*) => {{
+        format!(
+r#"
+fun fib(n) {{
+    if (n < 2) return n;
+      return fib(n - 2) + fib(n - 1);
+}}
+print fib({num_iter});
+"#,
+$(
+    $e
+)*
+        )
+    }};
+
+}

@@ -17,6 +17,10 @@ harness = false
 name = "loop"
 harness = false
 
+[[bench]]
+name = "fib"
+harness = false
+
 [lib]
 doctest = false
 

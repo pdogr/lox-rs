@@ -9,13 +9,12 @@ use criterion::Criterion;
 use paste::paste;
 
 use benches::generate_bench;
-use benches::NUM_ITERS;
 
-generate_bench!(loop,  "lox-rs", "interpreter_main", loop_program!);
+generate_bench!(loop,  "lox-rs", "interpreter_main", loop_program!, [100,1000]);
 
 criterion_group! {
     name = loop_benches;
-    config = Criterion::default();
+    config = Criterion::default().sample_size(20);
     targets = loop_bench_fn,
 }
 

@@ -8,10 +8,10 @@ use anyhow::anyhow;
 extern crate lox_ast as ast;
 
 extern crate lox_lexer as lexer;
-pub use lexer::Lexer;
+use lexer::Lexer;
 
 extern crate lox_parser as parser;
-pub use parser::Parser;
+use parser::Parser;
 
 extern crate rustyline;
 use rustyline::error::ReadlineError;
@@ -27,10 +27,10 @@ use evaluator::EvalResult;
 use evaluator::Evaluator;
 
 mod interpreter;
-pub use interpreter::Interpreter;
+use interpreter::Interpreter;
 
 mod resolver;
-pub use resolver::Resolver;
+use resolver::Resolver;
 
 fn prompt() {
     let mut interpreter = Interpreter::new(stdout());
