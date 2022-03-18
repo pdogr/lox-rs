@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
+
+use crate::span::Span;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum TokenType {
@@ -107,10 +109,11 @@ impl Display for TokenType {
 pub struct Token {
     pub ty: TokenType,
     pub lexeme: String,
+    pub span: Span,
 }
 
 impl Token {
-    pub fn new(ty: TokenType) -> Self {
+    pub fn new(ty: TokenType, span: Span) -> Self {
         use TokenType::*;
         let lexeme = match ty {
             LeftParen => "(",
@@ -154,13 +157,15 @@ impl Token {
         Self {
             ty,
             lexeme: lexeme.into(),
+            span,
         }
     }
 
-    pub fn new_with_lexeme(ty: TokenType, lexeme: &str) -> Self {
+    pub fn new_with_lexeme(ty: TokenType, lexeme: &str, span: Span) -> Self {
         Self {
             ty,
             lexeme: lexeme.into(),
+            span,
         }
     }
 }

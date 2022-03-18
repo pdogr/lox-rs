@@ -13,6 +13,9 @@ use lazy_static::lazy_static;
 mod lexer;
 pub use lexer::Lexer;
 
+mod span;
+pub use span::Span;
+
 mod token;
 pub use token::Token;
 pub use token::TokenType;
