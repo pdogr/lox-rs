@@ -211,8 +211,8 @@ pub enum Stmt {
 #[derive(Clone)]
 pub struct FuncObject {
     pub name: Option<Identifier>,
-    pub params: Vec<Identifier>,
-    pub body: Vec<Stmt>,
+    pub params: Rc<Vec<Identifier>>,
+    pub body: Rc<Vec<Stmt>>,
     pub closure: Env,
     pub is_initializer: bool,
 }
@@ -227,8 +227,8 @@ impl FuncObject {
     ) -> Self {
         Self {
             name: Some(name),
-            params,
-            body,
+            params: Rc::new(params),
+            body: Rc::new(body),
             closure,
             is_initializer,
         }
@@ -237,8 +237,8 @@ impl FuncObject {
     pub fn new_lambda(params: Vec<Identifier>, body: Vec<Stmt>, closure: Env) -> Self {
         Self {
             name: None,
-            params,
-            body,
+            params: Rc::new(params),
+            body: Rc::new(body),
             closure,
             is_initializer: false,
         }

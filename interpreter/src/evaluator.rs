@@ -18,7 +18,7 @@ pub struct Evaluator;
 
 impl Evaluator {
     pub fn evaluate<W: Write>(
-        expr: Expr,
+        expr: &Expr,
         env: Env,
         interpreter: &mut Interpreter<W>,
     ) -> EvalResult {
@@ -27,32 +27,27 @@ impl Evaluator {
         use UnaryOp::*;
         let r = match expr {
             Expr::Nil => Object::Nil,
-            Expr::Int(i) => Object::Int(i),
-            Expr::Float(f) => Object::Float(f),
-            Expr::Boolean(b) => Object::Boolean(b),
-            Expr::String(s) => Object::String(s),
+            Expr::Int(i) => Object::Int(*i),
+            Expr::Float(f) => Object::Float(*f),
+            Expr::Boolean(b) => Object::Boolean(*b),
+            Expr::String(s) => Object::String(s.clone()),
             Expr::Ident(ident) | Expr::This(ident) => {
-                let distance = interpreter.get_distance(&ident);
-                get_env(&env.borrow(), &ident, distance)?.borrow().clone()
+                let distance = interpreter.get_distance(ident);
+                get_env(&env.borrow(), ident, distance)?.borrow().clone()
             }
-            Expr::Unary(uop, expr) => {
-                match (
-                    uop,
-                    Evaluator::evaluate(*expr, Rc::clone(&env), interpreter)?,
-                ) {
-                    (Minus, Int(i)) => Int(-i),
-                    (Minus, Float(f)) => Float(-f),
-                    (Not, object) => Boolean(!object.is_truth()),
-                    (Minus, _) => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!("Operand must be a number.")));
-                    }
+            Expr::Unary(uop, expr) => match (uop, Evaluator::evaluate(expr, env, interpreter)?) {
+                (Minus, Int(i)) => Int(-i),
+                (Minus, Float(f)) => Float(-f),
+                (Not, object) => Boolean(!object.is_truth()),
+                (Minus, _) => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!("Operand must be a number.")));
                 }
-            }
+            },
             Expr::Binary(bop, e1, e2) => {
                 match (
                     bop,
-                    Evaluator::evaluate(*e1, Rc::clone(&env), interpreter)?,
-                    Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?,
+                    Evaluator::evaluate(e1, env.clone(), interpreter)?,
+                    Evaluator::evaluate(e2, env, interpreter)?,
                 ) {
                     (Add, String(a), String(b)) => String(a + &b),
                     (Add, Int(a), Int(b)) => Int(a + b),
@@ -107,71 +102,70 @@ impl Evaluator {
                 }
             }
             Expr::Assign(ident, e) => {
-                let ident = if let Expr::Ident(ident) = *ident {
+                let ident = if let Expr::Ident(ref ident) = **ident {
                     ident
                 } else {
                     unreachable!()
                 };
-                let distance = interpreter.get_distance(&ident);
-                let value = Evaluator::evaluate(*e, Rc::clone(&env), interpreter)?;
-                assign_env(&env.borrow(), &ident, distance, value.clone())?;
+                let distance = interpreter.get_distance(ident);
+                let value = Evaluator::evaluate(e, Rc::clone(&env), interpreter)?;
+                assign_env(&env.borrow(), ident, distance, value.clone())?;
                 value
             }
             Expr::Logical(lop, e1, e2) => match lop {
                 BinaryOp::And => {
-                    let value = Evaluator::evaluate(*e1, Rc::clone(&env), interpreter)?;
+                    let value = Evaluator::evaluate(e1, Rc::clone(&env), interpreter)?;
                     if !value.is_truth() {
                         value
                     } else {
-                        Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?
+                        Evaluator::evaluate(e2, Rc::clone(&env), interpreter)?
                     }
                 }
                 BinaryOp::Or => {
-                    let value = Evaluator::evaluate(*e1, Rc::clone(&env), interpreter)?;
+                    let value = Evaluator::evaluate(e1, Rc::clone(&env), interpreter)?;
                     if value.is_truth() {
                         value
                     } else {
-                        Evaluator::evaluate(*e2, Rc::clone(&env), interpreter)?
+                        Evaluator::evaluate(e2, Rc::clone(&env), interpreter)?
                     }
                 }
                 _ => unreachable!(),
             },
             Expr::Call(callee, args) => {
-                let callee = Evaluator::evaluate(*callee, Rc::clone(&env), interpreter)?;
                 let evaluated_args: Vec<Object> = args
-                    .into_iter()
-                    .map(|arg| Evaluator::evaluate(arg.into(), Rc::clone(&env), interpreter))
+                    .iter()
+                    .map(|arg| Evaluator::evaluate(&arg.value, Rc::clone(&env), interpreter))
                     .collect::<Result<Vec<_>>>()?;
+                let callee = Evaluator::evaluate(callee, env, interpreter)?;
                 callee.call(evaluated_args, interpreter)?
             }
             Expr::Lambda(params, body) => Object::Function(ast::FuncObject::new_lambda(
-                params,
-                body,
+                params.clone(),
+                body.clone(),
                 interpreter.env.clone(),
             )),
-            Expr::Get(object, property) => {
-                match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
-                    Instance(i) => ClassInstance::get(&property.token.lexeme, i)?,
-                    _ => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "Only instances have properties."
-                        )))
-                    }
+            Expr::Get(object, property) => match Evaluator::evaluate(object, env, interpreter)? {
+                Instance(i) => ClassInstance::get(&property.token.lexeme, i)?,
+                _ => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Only instances have properties."
+                    )))
                 }
-            }
+            },
             Expr::Set(object, property, value) => {
-                match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
+                match Evaluator::evaluate(object, Rc::clone(&env), interpreter)? {
                     Instance(i) => {
-                        let value = Evaluator::evaluate(*value, Rc::clone(&env), interpreter)?;
-                        i.borrow_mut().set(property.token.lexeme, value.clone());
+                        let value = Evaluator::evaluate(value, env, interpreter)?;
+                        i.borrow_mut()
+                            .set(property.token.lexeme.clone(), value.clone());
                         value
                     }
                     _ => return Err(ErrorOrCtxJmp::Error(anyhow!("Only instances have fields."))),
                 }
             }
             Expr::Super(super_class, method) => {
-                let distance = interpreter.get_distance(&super_class);
-                let super_class = match get_env(&env.borrow(), &super_class, distance)?
+                let distance = interpreter.get_distance(super_class);
+                let super_class = match get_env(&env.borrow(), super_class, distance)?
                     .borrow()
                     .clone()
                 {
@@ -235,7 +229,7 @@ mod tests {
                         .expression()
                         .expect("parsing error");
                     assert_eq!(
-                        Evaluator::evaluate(ast, env, &mut interpreter).unwrap(),
+                        Evaluator::evaluate(&ast, env, &mut interpreter).unwrap(),
                         $tt
                     );
                 }

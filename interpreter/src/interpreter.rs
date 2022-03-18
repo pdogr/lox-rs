@@ -29,7 +29,7 @@ impl<W: Write> Interpreter<W> {
         }
     }
 
-    fn run(&mut self, stmt: Stmt) -> Result<()> {
+    fn run(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Print(expr) => {
                 let o = Evaluator::evaluate(expr, Rc::clone(&self.env), self)?;
@@ -42,13 +42,13 @@ impl<W: Write> Interpreter<W> {
                 let _ = Evaluator::evaluate(expr, Rc::clone(&self.env), self)?;
             }
             Stmt::VariableDecl(VariableDecl { name, definition }) => {
-                let definition = definition.unwrap_or(Expr::Nil);
+                let definition = definition.as_ref().unwrap_or(&Expr::Nil);
                 let value = Evaluator::evaluate(definition, Rc::clone(&self.env), self)?;
-                self.env.borrow_mut().init_variable(name, value);
+                self.env.borrow_mut().init_variable(name.clone(), value);
             }
             Stmt::Block(stmts) => {
                 self.push_scope();
-                self.run_many(stmts.to_vec())?;
+                self.run_many(stmts)?;
                 self.pop_scope();
             }
             Stmt::Conditional(Conditional {
@@ -59,32 +59,32 @@ impl<W: Write> Interpreter<W> {
                 let cond = Evaluator::evaluate(cond, Rc::clone(&self.env), self)?;
                 match cond.is_truth() {
                     true => {
-                        self.run(*if_branch)?;
+                        self.run(if_branch)?;
                     }
                     false => {
                         if let Some(else_branch) = else_branch {
-                            self.run(*else_branch)?;
+                            self.run(else_branch)?;
                         }
                     }
                 };
             }
             Stmt::Loop(Loop { cond, body }) => loop {
-                let cond_val = Evaluator::evaluate(cond.clone(), Rc::clone(&self.env), self)?;
+                let cond_val = Evaluator::evaluate(cond, Rc::clone(&self.env), self)?;
                 if !cond_val.is_truth() {
                     break;
                 }
-                self.run(*body.clone())?;
+                self.run(body)?;
             },
             Stmt::FunctionDecl(FunctionDecl { name, params, body }) => {
                 let func = Object::Function(FuncObject::new(
                     name.clone(),
-                    params,
-                    body,
+                    params.clone(),
+                    body.clone(),
                     self.env.clone(),
                     false,
                 ));
 
-                self.env.borrow_mut().init_variable(name, func);
+                self.env.borrow_mut().init_variable(name.clone(), func);
             }
             Stmt::Return(value) => {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
@@ -121,16 +121,16 @@ impl<W: Write> Interpreter<W> {
                     name.clone(),
                     super_class,
                     methods
-                        .into_iter()
+                        .iter()
                         .map(|method| {
-                            let name = method.name;
+                            let name = method.name.clone();
                             let is_initializer = &name.token.lexeme == "init";
                             (
                                 name.token.lexeme.clone(),
                                 FuncObject::new(
                                     name,
-                                    method.params,
-                                    method.body,
+                                    method.params.clone(),
+                                    method.body.clone(),
                                     Rc::clone(&self.env),
                                     is_initializer,
                                 ),
@@ -142,7 +142,7 @@ impl<W: Write> Interpreter<W> {
                 if has_super_class {
                     self.pop_scope();
                 }
-                self.env.borrow_mut().init_variable(name, class);
+                self.env.borrow_mut().init_variable(name.clone(), class);
             }
         };
         Ok(())
@@ -157,7 +157,7 @@ impl<W: Write> Interpreter<W> {
         self.locals.push(distance);
     }
 
-    pub fn run_many(&mut self, stmts: Vec<Stmt>) -> Result<()> {
+    pub fn run_many(&mut self, stmts: &[Stmt]) -> Result<()> {
         for stmt in stmts {
             self.run(stmt)?;
         }
@@ -218,7 +218,7 @@ mod tests {
                         .resolve(&mut stmts, &mut interpreter)
                         .expect("variable resolution error");
 
-                    interpreter.run_many(stmts).expect("interpret error");
+                    interpreter.run_many(&stmts).expect("interpret error");
                 }
                 assert_eq!(&fake_stdout.into_string(), $tt);
             }

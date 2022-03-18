@@ -80,7 +80,7 @@ fn runline<W: Write>(
         stmts
     };
     resolver.resolve(&mut stmts, interpreter)?;
-    interpreter.run_many(stmts)?;
+    interpreter.run_many(&stmts)?;
     Ok(())
 }
 
@@ -104,7 +104,7 @@ fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()>
     let mut stmts = Parser::new(tokens.into_iter()).program()?;
     let mut resolver = Resolver::new();
     resolver.resolve(&mut stmts, interpreter)?;
-    interpreter.run_many(stmts)
+    interpreter.run_many(&stmts)
 }
 
 pub struct Runner {}

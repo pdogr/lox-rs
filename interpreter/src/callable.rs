@@ -61,14 +61,20 @@ impl<W: Write> Callable<W> for FuncObject {
             )));
         }
 
-        ctx.save_env(self.closure.clone());
+        ctx.save_env(Rc::clone(&self.closure));
         ctx.push_scope();
 
-        for (param, arg) in self.params.clone().into_iter().zip(args.into_iter()) {
+        for (param, arg) in self
+            .params
+            .as_ref()
+            .clone()
+            .into_iter()
+            .zip(args.into_iter())
+        {
             ctx.env.borrow_mut().init_variable(param, arg);
         }
 
-        let mut function_result = match ctx.run_many(self.body.clone()) {
+        let mut function_result = match ctx.run_many(&self.body) {
             Ok(()) => Object::Nil,
             Err(ErrorOrCtxJmp::RetJump { object }) => object,
             e => {
