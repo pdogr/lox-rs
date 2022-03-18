@@ -32,16 +32,8 @@ impl Evaluator {
             Expr::Boolean(b) => Object::Boolean(b),
             Expr::String(s) => Object::String(s),
             Expr::Ident(ident) | Expr::This(ident) => {
-                let distance = match interpreter.locals.get(&ident) {
-                    Some(distance) => distance,
-                    None => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "unable to find variable {} in evn",
-                            ident
-                        )))
-                    }
-                };
-                get_env(env, &ident, *distance)?.borrow().clone()
+                let distance = interpreter.get_distance(&ident)?;
+                get_env(env, &ident, distance)?.borrow().clone()
             }
             Expr::Unary(uop, expr) => {
                 match (
@@ -120,15 +112,7 @@ impl Evaluator {
                 } else {
                     unreachable!()
                 };
-                let distance = *match interpreter.locals.get(&ident) {
-                    Some(distance) => distance,
-                    None => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "unable to find variable {} in evn",
-                            ident
-                        )))
-                    }
-                };
+                let distance = interpreter.get_distance(&ident)?;
                 let value = Evaluator::evaluate(*e, Rc::clone(&env), interpreter)?;
                 assign_env(env, &ident, distance, value.clone())?;
                 value
@@ -186,16 +170,13 @@ impl Evaluator {
                 }
             }
             Expr::Super(super_class, method) => {
-                let distance = match interpreter.locals.get(&super_class) {
-                    Some(distance) => distance,
-                    None => {
-                        return Err(ErrorOrCtxJmp::Error(anyhow!(
-                            "unable to find super class {} in evn",
-                            super_class
-                        )))
-                    }
-                };
-                let super_class = match get_env(Rc::clone(&env), &super_class, *distance)?
+                let distance = interpreter.get_distance(&&super_class).map_err(|_| {
+                    return ErrorOrCtxJmp::Error(anyhow!(
+                        "unable to find super class {} in evn",
+                        super_class
+                    ));
+                })?;
+                let super_class = match get_env(Rc::clone(&env), &super_class, distance)?
                     .borrow()
                     .clone()
                 {
@@ -206,7 +187,7 @@ impl Evaluator {
                 let object = match get_env(
                     env,
                     &Token::new(TokenType::This, Span::default()).into(),
-                    *distance - 1,
+                    distance - 1,
                 )?
                 .borrow()
                 .clone()

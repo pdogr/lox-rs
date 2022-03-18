@@ -159,6 +159,18 @@ impl<W: Write> Interpreter<W> {
         Ok(())
     }
 
+    pub fn get_distance(&self, id: &Identifier) -> Result<usize> {
+        match self.locals.get(&id) {
+            Some(distance) => Ok(*distance),
+            None => {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "unable to find variable {} in evn",
+                    id
+                )))
+            }
+        }
+    }
+
     pub fn resolve(&mut self, id: Identifier, distance: usize) {
         self.locals.insert(id, distance);
     }
