@@ -9,7 +9,7 @@ use crate::Result;
 
 #[derive(Debug)]
 pub struct EnvInner {
-    values: HashMap<String, Rc<RefCell<Object>>>,
+    pub(crate) values: HashMap<String, Option<Rc<RefCell<Object>>>>,
     pub enclosing: Option<Rc<RefCell<EnvInner>>>,
 }
 
@@ -34,37 +34,44 @@ impl EnvInner {
         }
     }
 
-    fn _get(env: &EnvInner, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
+    pub fn declare_variable(&mut self, id: Identifier) -> Result<()> {
+        if self.values.get(&id.ident).is_some() {
+            return Err(EnvErrorKind::VariableExists(id));
+        }
+        self.values.insert(id.ident, None);
+        Ok(())
+    }
+
+    pub fn declare_init_variable(&mut self, id: Identifier, o: Object) -> Result<()> {
+        if self.values.get(&id.ident).is_some() {
+            return Err(EnvErrorKind::VariableExists(id));
+        }
+        self.values.insert(id.ident, Some(Rc::new(RefCell::new(o))));
+        Ok(())
+    }
+
+    pub fn init_variable(&mut self, id: Identifier, o: Object) {
+        self.values.insert(id.ident, Some(Rc::new(RefCell::new(o))));
+    }
+
+    pub fn contains_variable(&self, id: &Identifier) -> bool {
+        self.values.contains_key(&id.ident)
+    }
+
+    pub(crate) fn _get_env(
+        env: Rc<RefCell<EnvInner>>,
+        id: &Identifier,
+        up: usize,
+    ) -> Result<Rc<RefCell<EnvInner>>> {
         match up {
-            0 => match env.values.get(&id.ident) {
-                Some(val) => Ok(Rc::clone(val)),
+            0 => match env.borrow().values.get(&id.ident) {
+                Some(_) => Ok(Rc::clone(&env)),
                 None => Err(EnvErrorKind::UndefinedVariable(id.clone())),
             },
-            _ => match &env.enclosing {
-                Some(enclosing) => EnvInner::_get(&enclosing.borrow(), id, up - 1),
+            _ => match &env.borrow().enclosing {
+                Some(ref enclosing) => EnvInner::_get_env(Rc::clone(enclosing), id, up - 1),
                 None => Err(EnvErrorKind::NoEnclosingEnv),
             },
-        }
-    }
-
-    pub fn get(&self, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
-        EnvInner::_get(self, id, up)
-    }
-
-    pub fn insert(&mut self, id: Identifier, o: Object) -> Option<Rc<RefCell<Object>>> {
-        self.values.insert(id.ident, Rc::new(RefCell::new(o)))
-    }
-
-    pub fn insert_fail_if_present(&mut self, name: Identifier, object: Object) -> Result<()> {
-        match self
-            .values
-            .insert(name.ident.clone(), Rc::new(RefCell::new(object)))
-        {
-            // TODO: make variable definition with an Option, to not have this workaround.
-            Some(tok) if *tok.borrow() != Object::Nil => {
-                Err(EnvErrorKind::VariableExists(name))
-            }
-            _ => Ok(()),
         }
     }
 }

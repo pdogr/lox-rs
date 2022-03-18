@@ -37,7 +37,7 @@ impl Evaluator {
                         )))
                     }
                 };
-                env.borrow().get(&ident, *distance)?.borrow().clone()
+                get_env(env, &ident, *distance)?.borrow().clone()
             }
             Expr::Unary(uop, expr) => {
                 match (
@@ -116,7 +116,7 @@ impl Evaluator {
                 } else {
                     unreachable!()
                 };
-                let distance = match interpreter.locals.get(&ident) {
+                let distance = *match interpreter.locals.get(&ident) {
                     Some(distance) => distance,
                     None => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
@@ -125,9 +125,8 @@ impl Evaluator {
                         )))
                     }
                 };
-                let old = env.borrow_mut().get(&ident, *distance)?;
                 let value = Evaluator::evaluate(*e, Rc::clone(&env), interpreter)?;
-                *old.borrow_mut() = value.clone();
+                assign_env(env, &ident, distance, value.clone())?;
                 value
             }
             Expr::Logical(lop, e1, e2) => match lop {
@@ -192,15 +191,15 @@ impl Evaluator {
                         )))
                     }
                 };
-                let super_class = match env.borrow().get(&super_class, *distance)?.borrow().clone()
+                let super_class = match get_env(Rc::clone(&env), &super_class, *distance)?
+                    .borrow()
+                    .clone()
                 {
                     Class(c) => c,
                     _ => unreachable!(),
                 };
 
-                let object = match env
-                    .borrow()
-                    .get(&"this".to_string().into(), *distance - 1)?
+                let object = match get_env(env, &"this".to_string().into(), *distance - 1)?
                     .borrow()
                     .clone()
                 {

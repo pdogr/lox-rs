@@ -61,7 +61,7 @@ impl<W: Write> Callable<W> for FuncObject {
         ctx.push_scope();
 
         for (param, arg) in self.params.clone().into_iter().zip(args.into_iter()) {
-            ctx.env.borrow_mut().insert_fail_if_present(param, arg)?;
+            ctx.env.borrow_mut().declare_init_variable(param, arg)?;
         }
 
         let mut function_result = match ctx.run_many(self.body.clone()) {
@@ -74,10 +74,7 @@ impl<W: Write> Callable<W> for FuncObject {
         };
 
         if self.is_initializer {
-            function_result = ctx
-                .env
-                .borrow()
-                .get(&"this".to_string().into(), 1)?
+            function_result = get_env(Rc::clone(&ctx.env), &"this".to_string().into(), 1)?
                 .borrow()
                 .clone();
         }

@@ -239,7 +239,7 @@ impl FuncObject {
     pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> Result<Self> {
         let env = push_env(f.closure);
         env.borrow_mut()
-            .insert_fail_if_present("this".to_string().into(), Object::Instance(instance))?;
+            .declare_init_variable("this".to_string().into(), Object::Instance(instance))?;
         Ok(Self { closure: env, ..f })
     }
 }
