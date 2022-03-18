@@ -21,6 +21,10 @@ harness = false
 name = "fib"
 harness = false
 
+[[bench]]
+name = "properties"
+harness = false
+
 [lib]
 doctest = false
 
