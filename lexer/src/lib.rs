@@ -47,6 +47,9 @@ pub enum LexerErrorKind {
     #[error("Error: Unterminated string.")]
     UnterminatedStringLiteral,
 
+    #[error("Error: Unterminated block comment.")]
+    UntermiatedBlockComment,
+
     #[error("Error: Unexpected char '{ch}' found in input.")]
     UnexpectedChar { ch: char },
 }

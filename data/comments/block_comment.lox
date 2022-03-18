@@ -1,0 +1,15 @@
+
+/* this is a block comment which must be ignore
+ */
+
+print "lox"; // expect: "lox"
+
+/* this is also to be ignored
+ */
+
+print "ok"; // expect: "ok"
+
+/* finally this is also ignored
+ * the comment ends
+ * at eof 
+ */

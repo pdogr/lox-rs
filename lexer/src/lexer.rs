@@ -24,6 +24,11 @@ impl<I: Iterator<Item = char>> Lexer<I> {
     }
 
     #[inline(always)]
+    fn eof(&mut self) -> bool {
+        self.input.peek().is_none()
+    }
+
+    #[inline(always)]
     fn match_nth<F>(&mut self, n: usize, f: F) -> bool
     where
         F: Fn(char) -> bool,
@@ -106,7 +111,19 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                             self.skip_while(|c| c != '\n');
                             continue;
                         }
-                        false => return Ok(Token::new(ForwardSlash)),
+                        false => match self.match_next('*') {
+                            true => loop {
+                                self.skip_while(|c| c != '*');
+                                self.skip(1);
+                                if self.eof() {
+                                    return Err(LexerErrorKind::UntermiatedBlockComment);
+                                }
+                                if self.match_next('/') {
+                                    break;
+                                }
+                            },
+                            false => return Ok(Token::new(ForwardSlash)),
+                        },
                     },
                     '!' => {
                         return Ok(match self.match_next('=') {
@@ -290,6 +307,19 @@ mod tests {
     );
 
     test_lexer_ok!(
+        ignore_block_comment,
+        r#"
+        /* A block comment to be ignored 
+         * spanning many lines
+         * and followed by a semicolon
+         *
+         * */
+        ;
+        "#,
+        Token::new(SemiColon)
+    );
+
+    test_lexer_ok!(
         literal_str,
         "\"This is a string followed by a semi-colon.\";",
         Token::new_with_lexeme(Str, "This is a string followed by a semi-colon."),
@@ -362,5 +392,18 @@ mod tests {
         unterminated_string_literal,
         "\" this string is not terminated",
         JLoxError::UnterminatedStringLiteral
+    );
+
+    test_lexer_err!(
+        unterminated_block_comment,
+        r#"
+        var a=10;
+        /* this block comment is unterminted.
+         *
+         *
+         *
+         *
+        "#,
+        JLoxError::UntermiatedBlockComment
     );
 }
