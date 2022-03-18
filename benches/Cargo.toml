@@ -4,17 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lox-interpreter = { path = "../interpreter"}
+lox-interpreter = { path = "../interpreter", artifact = "bin" }
 criterion = "0.3"
 bench_helper = { path = "../bench_helper" }
-
-[[bench]]
-name = "loop"
-harness = false
+paste = "1.0.6"
 
 [[bench]]
 name = "instantiation"
 harness = false
 
+[[bench]]
+name = "loop"
+harness = false
+
 [lib]
+doctest = false
 
