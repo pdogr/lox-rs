@@ -146,7 +146,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn identifier(&mut self, err: &str) -> Result<Identifier> {
         match self.next_token()? {
-            token if token.ty == TokenType::Ident => Ok(Identifier { token }),
+            token if token.ty == TokenType::Ident => Ok(Identifier { token, rid: 0 }),
             x => Err(ParserErrorKind::ExpectedIdentifierNotFound(x, err.into())),
         }
     }
@@ -611,12 +611,24 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Expr::Lambda(params, stmts)
             }
-            TokenType::Ident => Expr::Ident(Identifier { token: next }),
-            TokenType::This => Expr::This(Identifier { token: next }),
+            TokenType::Ident => Expr::Ident(Identifier {
+                token: next,
+                rid: 0,
+            }),
+            TokenType::This => Expr::This(Identifier {
+                token: next,
+                rid: 0,
+            }),
             TokenType::Super => {
                 self.expect(TokenType::Dot, "Expect '.' after 'super'.")?;
                 let method = self.identifier("Expect superclass method name.")?;
-                Expr::Super(Identifier { token: next }, method)
+                Expr::Super(
+                    Identifier {
+                        token: next,
+                        rid: 0,
+                    },
+                    method,
+                )
             }
             _elt => return Err(ParserErrorKind::ExpectExpressionFound(next.lexeme)),
         })

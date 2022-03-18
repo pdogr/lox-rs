@@ -46,7 +46,7 @@ impl Resolver {
 
     pub fn resolve_stmt<W: Write>(
         &mut self,
-        stmt: &Stmt,
+        stmt: &mut Stmt,
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         match stmt {
@@ -84,7 +84,12 @@ impl Resolver {
             Stmt::FunctionDecl(f) => {
                 self.declare(&f.name);
                 self.define(&f.name);
-                self.resolve_function(&f.params, &f.body, FunctionType::Function, interpreter)?;
+                self.resolve_function(
+                    &mut f.params,
+                    &mut f.body,
+                    FunctionType::Function,
+                    interpreter,
+                )?;
             }
             Stmt::Return(expr) => {
                 if self.current_function == FunctionType::None {
@@ -140,7 +145,12 @@ impl Resolver {
                     } else {
                         FunctionType::ClassMethod
                     };
-                    self.resolve_function(&method.params, &method.body, declaration, interpreter)?;
+                    self.resolve_function(
+                        &mut method.params,
+                        &mut method.body,
+                        declaration,
+                        interpreter,
+                    )?;
                 }
                 self.end_scope();
 
@@ -156,7 +166,7 @@ impl Resolver {
 
     pub fn resolve_expr<W: Write>(
         &mut self,
-        expr: &Expr,
+        expr: &mut Expr,
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         match expr {
@@ -184,7 +194,7 @@ impl Resolver {
             }
             Expr::Assign(ident, e) => {
                 self.resolve_expr(e, interpreter)?;
-                if let Expr::Ident(ref id) = **ident {
+                if let Expr::Ident(ref mut id) = **ident {
                     self.resolve_local(id, interpreter)?;
                 } else {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
@@ -195,7 +205,7 @@ impl Resolver {
             Expr::Call(callee, args) => {
                 self.resolve_expr(callee, interpreter)?;
                 for arg in args {
-                    self.resolve_expr(&arg.value, interpreter)?;
+                    self.resolve_expr(&mut arg.value, interpreter)?;
                 }
             }
             Expr::Lambda(params, body) => {
@@ -230,7 +240,7 @@ impl Resolver {
 
     pub fn resolve<W: Write>(
         &mut self,
-        stmts: &[Stmt],
+        stmts: &mut [Stmt],
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         for stmt in stmts {
@@ -241,13 +251,13 @@ impl Resolver {
 
     pub fn resolve_local<W: Write>(
         &mut self,
-        id: &Identifier,
+        id: &mut Identifier,
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         for (i, scope) in self.scopes.iter().rev().enumerate() {
             match scope.get(&id.token.lexeme as &str) {
                 Some(_) => {
-                    interpreter.resolve(id.clone(), i);
+                    interpreter.resolve(id, i);
                     return Ok(());
                 }
                 None => {
@@ -270,8 +280,8 @@ impl Resolver {
 
     fn resolve_function<W: Write>(
         &mut self,
-        params: &[Identifier],
-        body: &[Stmt],
+        params: &mut [Identifier],
+        body: &mut [Stmt],
         ftype: FunctionType,
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {

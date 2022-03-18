@@ -90,6 +90,7 @@ impl From<TokenType> for BinaryOp {
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
+    pub rid: usize,
 }
 
 impl Display for Identifier {
@@ -100,7 +101,7 @@ impl Display for Identifier {
 
 impl From<Token> for Identifier {
     fn from(token: Token) -> Self {
-        Self { token }
+        Self { token, rid: 0 }
     }
 }
 

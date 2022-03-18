@@ -70,7 +70,7 @@ fn runline<W: Write>(
     let tokens: std::result::Result<Vec<lexer::Token>, _> = lexer.into_iter().collect();
     let tokens: Vec<lexer::Token> = tokens?;
     let stmts = parser::Parser::new(tokens.into_iter()).program()?;
-    let stmts = if stmts.len() == 1 {
+    let mut stmts = if stmts.len() == 1 {
         if let Some(ast::Stmt::Expr(ref e)) = stmts.get(0) {
             vec![ast::Stmt::Print(e.clone())]
         } else {
@@ -79,7 +79,7 @@ fn runline<W: Write>(
     } else {
         stmts
     };
-    resolver.resolve(&stmts, interpreter)?;
+    resolver.resolve(&mut stmts, interpreter)?;
     interpreter.run_many(stmts)?;
     Ok(())
 }
@@ -101,9 +101,9 @@ fn runfile<W: Write>(file: &str, interpreter: &mut Interpreter<W>) -> Result<()>
     let lexer = Lexer::new(program.chars()).unwrap();
     let tokens: std::result::Result<Vec<lexer::Token>, _> = lexer.into_iter().collect();
     let tokens = tokens?;
-    let stmts = Parser::new(tokens.into_iter()).program()?;
+    let mut stmts = Parser::new(tokens.into_iter()).program()?;
     let mut resolver = Resolver::new();
-    resolver.resolve(&stmts, interpreter)?;
+    resolver.resolve(&mut stmts, interpreter)?;
     interpreter.run_many(stmts)
 }
 

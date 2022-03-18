@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -17,7 +16,7 @@ pub struct Interpreter<W> {
     pub(crate) writer: W,
     pub(crate) env: Env,
     envs: Vec<Env>,
-    pub(crate) locals: HashMap<Identifier, usize>,
+    pub(crate) locals: Vec<usize>,
 }
 
 impl<W: Write> Interpreter<W> {
@@ -26,7 +25,7 @@ impl<W: Write> Interpreter<W> {
             writer,
             env: new_env(),
             envs: Vec::new(),
-            locals: HashMap::new(),
+            locals: vec![usize::MAX],
         }
     }
 
@@ -159,20 +158,13 @@ impl<W: Write> Interpreter<W> {
         Ok(())
     }
 
-    pub fn get_distance(&self, id: &Identifier) -> Result<usize> {
-        match self.locals.get(&id) {
-            Some(distance) => Ok(*distance),
-            None => {
-                return Err(ErrorOrCtxJmp::Error(anyhow!(
-                    "unable to find variable {} in evn",
-                    id
-                )))
-            }
-        }
+    pub fn get_distance(&self, id: &Identifier) -> usize {
+        unsafe { *self.locals.get_unchecked(id.rid) }
     }
 
-    pub fn resolve(&mut self, id: Identifier, distance: usize) {
-        self.locals.insert(id, distance);
+    pub fn resolve(&mut self, id: &mut Identifier, distance: usize) {
+        id.rid = self.locals.len();
+        self.locals.push(distance);
     }
 
     pub fn run_many(&mut self, stmts: Vec<Stmt>) -> Result<()> {
@@ -225,14 +217,14 @@ mod tests {
                     let lexer = Lexer::new(input.chars()).unwrap();
                     let tokens: std::result::Result<Vec<Token>, _> = lexer.into_iter().collect();
                     let tokens = tokens.expect("lexing error");
-                    let stmts = Parser::new(tokens.into_iter())
+                    let mut stmts = Parser::new(tokens.into_iter())
                         .program()
                         .expect("parsing error");
 
                     let mut interpreter = Interpreter::new(fake_stdout.clone());
                     let mut resolver = Resolver::new();
                     resolver
-                        .resolve(&stmts, &mut interpreter)
+                        .resolve(&mut stmts, &mut interpreter)
                         .expect("variable resolution error");
 
                     interpreter.run_many(stmts).expect("interpret error");
