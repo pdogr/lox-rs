@@ -31,9 +31,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 self.i.next();
                 Ok(())
             }
-            Some(actual) => {
-                Err(ParserErrorKind::UnexpectedToken(actual.clone(), err.into()))
-            }
+            Some(actual) => Err(ParserErrorKind::UnexpectedToken(actual.clone(), err.into())),
             _ => Err(ParserErrorKind::MissingTokenWithMsg(err.into())),
         }
     }
