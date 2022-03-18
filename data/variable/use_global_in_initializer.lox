@@ -1,4 +1,4 @@
 var a = "value";
 var a = a;
-print a; // expect: Error at 'a': Can't read local variable in its own initializer.
-// This impl explicitly errors such assignments
+// As now we first check in assignment if the variable exists or not
+print a; // Error at 'a': Already a variable with this name in this scope.

@@ -10,6 +10,13 @@ use crate::Result;
 pub type ResolveResult = Result<()>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VariableState {
+    Declared,
+    Defined,
+    Initialized,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FunctionType {
     None,
     Function,
@@ -24,7 +31,7 @@ enum ClassType {
 }
 
 pub struct Resolver {
-    scopes: Vec<HashMap<String, bool>>,
+    scopes: Vec<HashMap<String, VariableState>>,
     current_function: FunctionType,
     current_class: ClassType,
 }
@@ -52,14 +59,16 @@ impl Resolver {
         match stmt {
             Stmt::Print(e) | Stmt::Expr(e) => self.resolve_expr(e, interpreter)?,
             Stmt::VariableDecl(VariableDecl { name, definition }) => {
-                self.declare(name);
+                self.declare(name)?;
                 match definition {
                     Some(initalizer_expr) => {
                         self.resolve_expr(initalizer_expr, interpreter)?;
+                        self.init(name);
                     }
-                    None => {}
+                    None => {
+                        self.define(name);
+                    }
                 }
-                self.define(name);
             }
             Stmt::Block(stmts) => {
                 self.begin_scope();
@@ -82,8 +91,7 @@ impl Resolver {
                 self.resolve_stmt(body, interpreter)?;
             }
             Stmt::FunctionDecl(f) => {
-                self.declare(&f.name);
-                self.define(&f.name);
+                self.init(&f.name);
                 self.resolve_function(
                     &mut f.params,
                     &mut f.body,
@@ -111,9 +119,7 @@ impl Resolver {
                 super_class,
                 methods,
             }) => {
-                self.declare(name);
-                self.define(name);
-
+                self.init(name);
                 let enclosing_class = self.current_class;
                 self.current_class = ClassType::Class;
 
@@ -131,14 +137,14 @@ impl Resolver {
                     self.scopes
                         .last_mut()
                         .unwrap()
-                        .insert("super".to_string(), true);
+                        .insert("super".to_string(), VariableState::Initialized);
                 }
 
                 self.begin_scope();
                 self.scopes
                     .last_mut()
                     .unwrap()
-                    .insert("this".to_string(), true);
+                    .insert("this".to_string(), VariableState::Initialized);
                 for method in methods {
                     let declaration = if method.name.token.lexeme == "init" {
                         FunctionType::Initializer
@@ -174,7 +180,7 @@ impl Resolver {
             Expr::Ident(id) => {
                 if !self.scopes.is_empty() {
                     match self.scopes.last().unwrap().get(&id.token.lexeme as &str) {
-                        Some(b) if !(*b) => {
+                        Some(b) if *b == VariableState::Declared => {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
                                 "Error at '{}': Can't read local variable in its own initializer.",
                                 &id.token.lexeme
@@ -183,7 +189,7 @@ impl Resolver {
                         _ => {}
                     };
                 }
-                self.resolve_local(id, interpreter)?
+                self.resolve_local(id, interpreter, true)?
             }
             Expr::Unary(_, e) => {
                 self.resolve_expr(e, interpreter)?;
@@ -195,7 +201,7 @@ impl Resolver {
             Expr::Assign(ident, e) => {
                 self.resolve_expr(e, interpreter)?;
                 if let Expr::Ident(ref mut id) = **ident {
-                    self.resolve_local(id, interpreter)?;
+                    self.resolve_local(id, interpreter, false)?;
                 } else {
                     return Err(ErrorOrCtxJmp::Error(anyhow!(
                         "Error at '=': Invalid assignment target."
@@ -224,7 +230,7 @@ impl Resolver {
                         "Error at 'this': Can't use 'this' outside of a class."
                     )));
                 }
-                self.resolve_local(this, interpreter)?
+                self.resolve_local(this, interpreter, false)?
             }
             Expr::Super(super_class, _method) => {
                 if self.current_class == ClassType::None {
@@ -232,7 +238,7 @@ impl Resolver {
                         "Error at 'super': Can't use 'super' outside of a class."
                     )));
                 }
-                self.resolve_local(super_class, interpreter)?;
+                self.resolve_local(super_class, interpreter, false)?;
             }
         }
         Ok(())
@@ -253,10 +259,18 @@ impl Resolver {
         &mut self,
         id: &mut Identifier,
         interpreter: &mut Interpreter<W>,
+        check_initialized: bool,
     ) -> ResolveResult {
-        for (i, scope) in self.scopes.iter().rev().enumerate() {
-            match scope.get(&id.token.lexeme as &str) {
-                Some(_) => {
+        for (i, scope) in self.scopes.iter_mut().rev().enumerate() {
+            match scope.get_mut(&id.token.lexeme as &str) {
+                Some(b) if *b != VariableState::Initialized && check_initialized => {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at '{0}': Accessed an unintialized variable '{0}'.",
+                        &id.token.lexeme
+                    )))
+                }
+                Some(b) => {
+                    *b = VariableState::Initialized;
                     interpreter.resolve(id, i);
                     return Ok(());
                 }
@@ -290,8 +304,7 @@ impl Resolver {
         self.begin_scope();
 
         for param in params {
-            self.declare(param);
-            self.define(param);
+            self.init(param);
         }
 
         self.resolve(body, interpreter)?;
@@ -309,15 +322,28 @@ impl Resolver {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, name: &Identifier) {
+    fn declare(&mut self, name: &Identifier) -> Result<()> {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.token.lexeme.clone(), false);
+            if scope.contains_key(&name.token.lexeme) {
+                return Err(ErrorOrCtxJmp::Error(anyhow!(
+                    "Error at '{}': Already a variable with this name in this scope.",
+                    name.token.lexeme
+                )));
+            }
+            scope.insert(name.token.lexeme.clone(), VariableState::Declared);
         }
+        Ok(())
     }
 
     fn define(&mut self, name: &Identifier) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.token.lexeme.clone(), true);
+            scope.insert(name.token.lexeme.clone(), VariableState::Defined);
+        }
+    }
+
+    fn init(&mut self, name: &Identifier) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.token.lexeme.clone(), VariableState::Initialized);
         }
     }
 }

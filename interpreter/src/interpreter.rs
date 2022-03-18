@@ -41,15 +41,11 @@ impl<W: Write> Interpreter<W> {
             Stmt::Expr(expr) => {
                 let _ = Evaluator::evaluate(expr, Rc::clone(&self.env), self)?;
             }
-            Stmt::VariableDecl(VariableDecl { name, definition }) => match definition {
-                Some(definition) => {
-                    let value = Evaluator::evaluate(definition, Rc::clone(&self.env), self)?;
-                    self.env.borrow_mut().declare_init_variable(name, value)?;
-                }
-                None => {
-                    self.env.borrow_mut().declare_variable(name)?;
-                }
-            },
+            Stmt::VariableDecl(VariableDecl { name, definition }) => {
+                let definition = definition.unwrap_or(Expr::Nil);
+                let value = Evaluator::evaluate(definition, Rc::clone(&self.env), self)?;
+                self.env.borrow_mut().init_variable(name, value);
+            }
             Stmt::Block(stmts) => {
                 self.push_scope();
                 self.run_many(stmts.to_vec())?;
@@ -88,13 +84,7 @@ impl<W: Write> Interpreter<W> {
                     false,
                 ));
 
-                // For functions we might have forward declared it, so we check
-                // if the env already contains the declaration
-                let already_in_env = self.env.borrow().contains_variable(&name);
-                match already_in_env {
-                    true => self.env.borrow_mut().init_variable(name, func),
-                    false => self.env.borrow_mut().declare_init_variable(name, func)?,
-                }
+                self.env.borrow_mut().init_variable(name, func);
             }
             Stmt::Return(value) => {
                 let value = Evaluator::evaluate(value, Rc::clone(&self.env), self)?;
@@ -122,10 +112,10 @@ impl<W: Write> Interpreter<W> {
                 if let Some(ref sc) = super_class {
                     self.push_scope();
                     let scc = *sc.clone();
-                    self.env.borrow_mut().declare_init_variable(
+                    self.env.borrow_mut().init_variable(
                         Token::new(TokenType::Super, Span::default()).into(),
                         Object::Class(scc),
-                    )?;
+                    );
                 }
                 let class = Object::Class(ClassObject::new(
                     name.clone(),
@@ -152,7 +142,7 @@ impl<W: Write> Interpreter<W> {
                 if has_super_class {
                     self.pop_scope();
                 }
-                self.env.borrow_mut().declare_init_variable(name, class)?;
+                self.env.borrow_mut().init_variable(name, class);
             }
         };
         Ok(())
@@ -221,6 +211,7 @@ mod tests {
                         .program()
                         .expect("parsing error");
 
+                    dbg!($input);
                     let mut interpreter = Interpreter::new(fake_stdout.clone());
                     let mut resolver = Resolver::new();
                     resolver

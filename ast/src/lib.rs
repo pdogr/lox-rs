@@ -31,29 +31,13 @@ pub fn pop_env(env: Env) -> Env {
         .clone()
 }
 
-pub fn get_env(
-    env: Rc<RefCell<EnvInner>>,
-    id: &Identifier,
-    up: usize,
-) -> Result<Rc<RefCell<Object>>> {
-    let matching_env = EnvInner::_get_env(env, id, up)?;
-    let matching_env = matching_env.borrow();
-    match matching_env.values.get(&id.token.lexeme).unwrap() {
-        Some(o) => Ok(Rc::clone(o)),
-        None => Err(EnvErrorKind::UnintializedVariableAccessed(id.clone())),
-    }
+pub fn get_env(env: &EnvInner, id: &Identifier, up: usize) -> Result<Rc<RefCell<Object>>> {
+    EnvInner::_get(env, id, up)
 }
 
-pub fn assign_env(
-    env: Rc<RefCell<EnvInner>>,
-    id: &Identifier,
-    up: usize,
-    value: Object,
-) -> Result<()> {
-    let matching_env = EnvInner::_get_env(env, id, up)?;
-    let mut matching_env_mut = matching_env.borrow_mut();
-    let old_value = matching_env_mut.values.get_mut(&id.token.lexeme).unwrap();
-    *old_value = Some(Rc::new(RefCell::new(value)));
+pub fn assign_env(env: &EnvInner, id: &Identifier, up: usize, value: Object) -> Result<()> {
+    let old_value = EnvInner::_get(env, id, up)?;
+    *old_value.borrow_mut() = value;
     Ok(())
 }
 
@@ -67,12 +51,6 @@ pub enum EnvErrorKind {
 
     #[error("Undefined property '{0}'.")]
     UndefinedProperty(String),
-
-    #[error("Error at '{0}': Already a variable with this name in this scope.")]
-    VariableExists(Identifier),
-
-    #[error("Error at '{0}': Accessed an unintialized variable '{0}'.")]
-    UnintializedVariableAccessed(Identifier),
 }
 
 type Result<T> = std::result::Result<T, EnvErrorKind>;

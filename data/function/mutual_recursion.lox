@@ -1,4 +1,6 @@
-var isOdd;
+var isEven = nil; 
+var isOdd = nil;
+
 fun isEven(n) {
   if (n == 0) return true;
   return isOdd(n - 1);

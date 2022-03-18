@@ -33,7 +33,7 @@ impl Evaluator {
             Expr::String(s) => Object::String(s),
             Expr::Ident(ident) | Expr::This(ident) => {
                 let distance = interpreter.get_distance(&ident);
-                get_env(env, &ident, distance)?.borrow().clone()
+                get_env(&env.borrow(), &ident, distance)?.borrow().clone()
             }
             Expr::Unary(uop, expr) => {
                 match (
@@ -114,7 +114,7 @@ impl Evaluator {
                 };
                 let distance = interpreter.get_distance(&ident);
                 let value = Evaluator::evaluate(*e, Rc::clone(&env), interpreter)?;
-                assign_env(env, &ident, distance, value.clone())?;
+                assign_env(&env.borrow(), &ident, distance, value.clone())?;
                 value
             }
             Expr::Logical(lop, e1, e2) => match lop {
@@ -171,7 +171,7 @@ impl Evaluator {
             }
             Expr::Super(super_class, method) => {
                 let distance = interpreter.get_distance(&super_class);
-                let super_class = match get_env(Rc::clone(&env), &super_class, distance)?
+                let super_class = match get_env(&env.borrow(), &super_class, distance)?
                     .borrow()
                     .clone()
                 {
@@ -180,7 +180,7 @@ impl Evaluator {
                 };
 
                 let object = match get_env(
-                    env,
+                    &env.borrow(),
                     &Token::new(TokenType::This, Span::default()).into(),
                     distance - 1,
                 )?
