@@ -1,6 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
+
+use lexer::Span;
+use lexer::Token;
+use lexer::TokenType;
 
 use crate::anyhow;
 use crate::ast::*;
@@ -13,7 +17,7 @@ pub struct Interpreter<W> {
     pub(crate) writer: W,
     pub(crate) env: Env,
     envs: Vec<Env>,
-    pub(crate) locals: BTreeMap<Identifier, usize>,
+    pub(crate) locals: HashMap<Identifier, usize>,
 }
 
 impl<W: Write> Interpreter<W> {
@@ -22,7 +26,7 @@ impl<W: Write> Interpreter<W> {
             writer,
             env: new_env(),
             envs: Vec::new(),
-            locals: BTreeMap::new(),
+            locals: HashMap::new(),
         }
     }
 
@@ -119,9 +123,10 @@ impl<W: Write> Interpreter<W> {
                 if let Some(ref sc) = super_class {
                     self.push_scope();
                     let scc = *sc.clone();
-                    self.env
-                        .borrow_mut()
-                        .declare_init_variable("super".to_string().into(), Object::Class(scc))?;
+                    self.env.borrow_mut().declare_init_variable(
+                        Token::new(TokenType::Super, Span::default()).into(),
+                        Object::Class(scc),
+                    )?;
                 }
                 let class = Object::Class(ClassObject::new(
                     name.clone(),
@@ -130,9 +135,9 @@ impl<W: Write> Interpreter<W> {
                         .into_iter()
                         .map(|method| {
                             let name = method.name;
-                            let is_initializer = &name.ident == "init";
+                            let is_initializer = &name.token.lexeme == "init";
                             (
-                                name.ident.clone(),
+                                name.token.lexeme.clone(),
                                 FuncObject::new(
                                     name,
                                     method.params,

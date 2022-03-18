@@ -146,7 +146,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn identifier(&mut self, err: &str) -> Result<Identifier> {
         match self.next_token()? {
-            t if t.ty == TokenType::Ident => Ok(t.lexeme.into()),
+            token if token.ty == TokenType::Ident => Ok(Identifier { token }),
             x => Err(ParserErrorKind::ExpectedIdentifierNotFound(x, err.into())),
         }
     }
@@ -163,8 +163,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                         ));
                     } else {
                         let id = self.identifier("Expect parameter name.")?;
-                        if params.iter().any(|i| i.ident == id.ident) {
-                            return Err(ParserErrorKind::DuplicateParamter(id.ident));
+                        if params.iter().any(|i| i.token.lexeme == id.token.lexeme) {
+                            return Err(ParserErrorKind::DuplicateParamter(id.token.lexeme));
                         } else {
                             params.push(id);
                         }
@@ -611,12 +611,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Expr::Lambda(params, stmts)
             }
-            TokenType::Ident => Expr::Ident(next.lexeme.into()),
-            TokenType::This => Expr::This("this".to_string().into()),
+            TokenType::Ident => Expr::Ident(Identifier { token: next }),
+            TokenType::This => Expr::This(Identifier { token: next }),
             TokenType::Super => {
                 self.expect(TokenType::Dot, "Expect '.' after 'super'.")?;
                 let method = self.identifier("Expect superclass method name.")?;
-                Expr::Super("super".to_string().into(), method)
+                Expr::Super(Identifier { token: next }, method)
             }
             _elt => return Err(ParserErrorKind::ExpectExpressionFound(next.lexeme)),
         })
@@ -627,6 +627,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 mod tests {
     use super::*;
     use crate::lexer::Lexer;
+    use crate::lexer::Span;
     use crate::lexer::Token;
 
     #[allow(unused_macros)]
@@ -718,8 +719,10 @@ mod tests {
         parse_lambda,
         "fun (a){print a;}",
         Expr::Lambda(
-            vec!["a".to_string().into()],
-            vec![Stmt::Print(Expr::Ident("a".to_string().into()))]
+            vec![Token::new_with_lexeme(TokenType::Ident, "a", Span::new(1, 6)).into()],
+            vec![Stmt::Print(Expr::Ident(
+                Token::new_with_lexeme(TokenType::Ident, "a", Span::new(1, 15)).into()
+            ))]
         )
     );
 }

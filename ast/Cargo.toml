@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0"
 lox-lexer = { path = "../lexer"}
-uuid = {version = "0.8.2", features = ["v4"]}
 
 [lib]
 doctest = false

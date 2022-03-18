@@ -1,6 +1,10 @@
 use std::io::Write;
 use std::rc::Rc;
 
+use lexer::Span;
+use lexer::Token;
+use lexer::TokenType;
+
 use crate::anyhow;
 use crate::ast::*;
 use crate::callable::Callable;
@@ -163,7 +167,7 @@ impl Evaluator {
             )),
             Expr::Get(object, property) => {
                 match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
-                    Instance(i) => ClassInstance::get(&property.ident, i)?,
+                    Instance(i) => ClassInstance::get(&property.token.lexeme, i)?,
                     _ => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
                             "Only instances have properties."
@@ -175,7 +179,7 @@ impl Evaluator {
                 match Evaluator::evaluate(*object, Rc::clone(&env), interpreter)? {
                     Instance(i) => {
                         let value = Evaluator::evaluate(*value, Rc::clone(&env), interpreter)?;
-                        i.borrow_mut().set(property.ident, value.clone());
+                        i.borrow_mut().set(property.token.lexeme, value.clone());
                         value
                     }
                     _ => return Err(ErrorOrCtxJmp::Error(anyhow!("Only instances have fields."))),
@@ -199,20 +203,25 @@ impl Evaluator {
                     _ => unreachable!(),
                 };
 
-                let object = match get_env(env, &"this".to_string().into(), *distance - 1)?
-                    .borrow()
-                    .clone()
+                let object = match get_env(
+                    env,
+                    &Token::new(TokenType::This, Span::default()).into(),
+                    *distance - 1,
+                )?
+                .borrow()
+                .clone()
                 {
                     Instance(i) => i,
                     _ => unreachable!(),
                 };
 
-                let super_class_method = match super_class.find_method(&method.ident as &str) {
+                let super_class_method = match super_class.find_method(&method.token.lexeme as &str)
+                {
                     Some(m) => m,
                     None => {
                         return Err(ErrorOrCtxJmp::Error(anyhow!(
                             "Undefined property '{}'.",
-                            &method.ident
+                            &method.token.lexeme
                         )));
                     }
                 };

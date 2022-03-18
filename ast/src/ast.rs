@@ -2,14 +2,17 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::rc::Rc;
+
+use lox_lexer::Token;
 
 use crate::push_env;
 use crate::Env;
 use crate::EnvErrorKind;
 use crate::Result;
+use crate::Span;
 use crate::TokenType;
-use crate::Uuid;
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum UnaryOp {
@@ -84,32 +87,36 @@ impl From<TokenType> for BinaryOp {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
-    pub ident: String,
-    pub tag: Uuid,
+    pub token: Token,
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.token)
+    }
+}
+
+impl From<Token> for Identifier {
+    fn from(token: Token) -> Self {
+        Self { token }
+    }
 }
 
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
-        self.ident == other.ident
+        self.token == other.token
     }
 }
 
 impl Eq for Identifier {}
 
-impl Display for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ident)
-    }
-}
-
-impl From<String> for Identifier {
-    fn from(s: String) -> Self {
-        Self {
-            ident: s,
-            tag: Uuid::new_v4(),
-        }
+impl Hash for Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.token.span.line.hash(state);
+        self.token.span.col.hash(state);
+        self.token.lexeme.hash(state);
     }
 }
 
@@ -238,8 +245,10 @@ impl FuncObject {
 
     pub fn bind(f: FuncObject, instance: Rc<RefCell<ClassInstance>>) -> Result<Self> {
         let env = push_env(f.closure);
-        env.borrow_mut()
-            .declare_init_variable("this".to_string().into(), Object::Instance(instance))?;
+        env.borrow_mut().declare_init_variable(
+            Token::new(TokenType::This, Span::default()).into(),
+            Object::Instance(instance),
+        )?;
         Ok(Self { closure: env, ..f })
     }
 }
@@ -331,7 +340,10 @@ impl ClassInstance {
     pub fn new(class: ClassObject, fields: Vec<(Identifier, Object)>) -> Self {
         Self {
             class,
-            fields: fields.into_iter().map(|(id, o)| (id.ident, o)).collect(),
+            fields: fields
+                .into_iter()
+                .map(|(id, o)| (id.token.lexeme, o))
+                .collect(),
         }
     }
 

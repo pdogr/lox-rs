@@ -2,12 +2,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 extern crate lox_lexer;
+use lox_lexer::Span;
 use lox_lexer::TokenType;
 
 extern crate thiserror;
 use thiserror::Error;
-extern crate uuid;
-use uuid::Uuid;
 
 mod ast;
 pub use ast::*;
@@ -39,7 +38,7 @@ pub fn get_env(
 ) -> Result<Rc<RefCell<Object>>> {
     let matching_env = EnvInner::_get_env(env, id, up)?;
     let matching_env = matching_env.borrow();
-    match matching_env.values.get(&id.ident).unwrap() {
+    match matching_env.values.get(&id.token.lexeme).unwrap() {
         Some(o) => Ok(Rc::clone(o)),
         None => Err(EnvErrorKind::UnintializedVariableAccessed(id.clone())),
     }
@@ -53,7 +52,7 @@ pub fn assign_env(
 ) -> Result<()> {
     let matching_env = EnvInner::_get_env(env, id, up)?;
     let mut matching_env_mut = matching_env.borrow_mut();
-    let old_value = matching_env_mut.values.get_mut(&id.ident).unwrap();
+    let old_value = matching_env_mut.values.get_mut(&id.token.lexeme).unwrap();
     *old_value = Some(Rc::new(RefCell::new(value)));
     Ok(())
 }

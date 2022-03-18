@@ -114,7 +114,7 @@ impl Resolver {
 
                 if let Some(super_class) = super_class {
                     if let Expr::Ident(ref sc) = super_class {
-                        if sc.ident == name.ident {
+                        if sc.token.lexeme == name.token.lexeme {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
                                 "Error at '{}': A class can't inherit from itself.",
                                 name
@@ -135,7 +135,7 @@ impl Resolver {
                     .unwrap()
                     .insert("this".to_string(), true);
                 for method in methods {
-                    let declaration = if method.name.ident == "init" {
+                    let declaration = if method.name.token.lexeme == "init" {
                         FunctionType::Initializer
                     } else {
                         FunctionType::ClassMethod
@@ -163,11 +163,11 @@ impl Resolver {
             Expr::Nil | Expr::Int(_) | Expr::Float(_) | Expr::Boolean(_) | Expr::String(_) => {}
             Expr::Ident(id) => {
                 if !self.scopes.is_empty() {
-                    match self.scopes.last().unwrap().get(&id.ident as &str) {
+                    match self.scopes.last().unwrap().get(&id.token.lexeme as &str) {
                         Some(b) if !(*b) => {
                             return Err(ErrorOrCtxJmp::Error(anyhow!(
                                 "Error at '{}': Can't read local variable in its own initializer.",
-                                &id.ident
+                                &id.token.lexeme
                             )))
                         }
                         _ => {}
@@ -245,7 +245,7 @@ impl Resolver {
         interpreter: &mut Interpreter<W>,
     ) -> ResolveResult {
         for (i, scope) in self.scopes.iter().rev().enumerate() {
-            match scope.get(&id.ident as &str) {
+            match scope.get(&id.token.lexeme as &str) {
                 Some(_) => {
                     interpreter.resolve(id.clone(), i);
                     return Ok(());
@@ -256,14 +256,14 @@ impl Resolver {
             }
         }
 
-        if id.ident == "super" {
+        if id.token.lexeme == "super" {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
                 "Error at 'super': Can't use 'super' in a class with no superclass."
             )));
         } else {
             return Err(ErrorOrCtxJmp::Error(anyhow!(
                 "Undefined variable '{}'.",
-                id.ident
+                id.token.lexeme
             )));
         }
     }
@@ -301,13 +301,13 @@ impl Resolver {
 
     fn declare(&mut self, name: &Identifier) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.ident.clone(), false);
+            scope.insert(name.token.lexeme.clone(), false);
         }
     }
 
     fn define(&mut self, name: &Identifier) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.ident.clone(), true);
+            scope.insert(name.token.lexeme.clone(), true);
         }
     }
 }

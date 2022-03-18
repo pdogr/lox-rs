@@ -2,6 +2,10 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
 
+use lexer::Span;
+use lexer::Token;
+use lexer::TokenType;
+
 use crate::anyhow;
 use crate::ast::*;
 use crate::ErrorOrCtxJmp;
@@ -74,9 +78,13 @@ impl<W: Write> Callable<W> for FuncObject {
         };
 
         if self.is_initializer {
-            function_result = get_env(Rc::clone(&ctx.env), &"this".to_string().into(), 1)?
-                .borrow()
-                .clone();
+            function_result = get_env(
+                Rc::clone(&ctx.env),
+                &Token::new(TokenType::This, Span::default()).into(),
+                1,
+            )?
+            .borrow()
+            .clone();
         }
 
         ctx.pop_scope();

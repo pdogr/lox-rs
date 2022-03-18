@@ -35,27 +35,29 @@ impl EnvInner {
     }
 
     pub fn declare_variable(&mut self, id: Identifier) -> Result<()> {
-        if self.values.get(&id.ident).is_some() {
+        if self.values.get(&id.token.lexeme).is_some() {
             return Err(EnvErrorKind::VariableExists(id));
         }
-        self.values.insert(id.ident, None);
+        self.values.insert(id.token.lexeme, None);
         Ok(())
     }
 
     pub fn declare_init_variable(&mut self, id: Identifier, o: Object) -> Result<()> {
-        if self.values.get(&id.ident).is_some() {
+        if self.values.get(&id.token.lexeme).is_some() {
             return Err(EnvErrorKind::VariableExists(id));
         }
-        self.values.insert(id.ident, Some(Rc::new(RefCell::new(o))));
+        self.values
+            .insert(id.token.lexeme, Some(Rc::new(RefCell::new(o))));
         Ok(())
     }
 
     pub fn init_variable(&mut self, id: Identifier, o: Object) {
-        self.values.insert(id.ident, Some(Rc::new(RefCell::new(o))));
+        self.values
+            .insert(id.token.lexeme, Some(Rc::new(RefCell::new(o))));
     }
 
     pub fn contains_variable(&self, id: &Identifier) -> bool {
-        self.values.contains_key(&id.ident)
+        self.values.contains_key(&id.token.lexeme)
     }
 
     pub(crate) fn _get_env(
@@ -64,7 +66,7 @@ impl EnvInner {
         up: usize,
     ) -> Result<Rc<RefCell<EnvInner>>> {
         match up {
-            0 => match env.borrow().values.get(&id.ident) {
+            0 => match env.borrow().values.get(&id.token.lexeme) {
                 Some(_) => Ok(Rc::clone(&env)),
                 None => Err(EnvErrorKind::UndefinedVariable(id.clone())),
             },
