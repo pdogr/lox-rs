@@ -50,8 +50,9 @@ impl<W: Write> Interpreter<W> {
             }
             Stmt::Block(stmts) => {
                 self.push_scope();
-                self.run_many(stmts)?;
+                let value = self.run_many(stmts);
                 self.pop_scope();
+                value?
             }
             Stmt::Conditional(Conditional {
                 cond,
@@ -75,7 +76,14 @@ impl<W: Write> Interpreter<W> {
                 if !cond_val.is_truth() {
                     break;
                 }
-                self.run(body)?;
+                let res = self.run(body);
+                match res {
+                    Ok(_) => {}
+                    Err(ErrorOrCtxJmp::BrkJump) => {
+                        break;
+                    }
+                    e => e?,
+                }
             },
             Stmt::FunctionDecl(FunctionDecl { name, params, body }) => {
                 let func = Object::Function(FuncObject::new(
@@ -145,6 +153,9 @@ impl<W: Write> Interpreter<W> {
                     self.pop_scope();
                 }
                 self.env.borrow_mut().init_variable(name.clone(), class);
+            }
+            Stmt::Break => {
+                return Err(ErrorOrCtxJmp::BrkJump);
             }
         };
         Ok(())
@@ -668,5 +679,42 @@ var a = "1
 print a;
         "#,
         "\"1\n2\n3\"\n"
+    );
+
+    test_interpret_ok!(
+        break_loop,
+        r#"
+            var i=1;
+            while(i<10)
+            {
+            var j=1;
+            while(j*j<100){
+                if(j==5){
+                    print i*j;
+                    break;
+                }
+                j=j+1;
+            }
+            i=i+1;
+            }
+        "#,
+        "5\n10\n15\n20\n25\n30\n35\n40\n45\n"
+    );
+
+    test_interpret_ok!(
+        continue_loop,
+        r#"
+        for(var i=1;i<10;i=i+1){
+            for(var j=1;j<i;j=j+1){
+                for(var k=1;k<j;k=k+1){
+                    print i*j*k;
+                    if((i*j*k)!=20){
+                        break;
+                    }
+                }
+            }
+        }
+        "#,
+        "6\n8\n12\n10\n15\n20\n40\n12\n18\n24\n30\n14\n21\n28\n35\n42\n16\n24\n32\n40\n48\n56\n18\n27\n36\n45\n54\n63\n72\n"
     );
 }

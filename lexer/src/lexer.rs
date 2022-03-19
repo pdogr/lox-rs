@@ -429,6 +429,13 @@ mod tests {
         Token::new(RightParen, Span::new(1, 14))
     );
 
+    test_lexer_ok!(
+        break_stmt,
+        "break;",
+        Token::new(Break, Span::new(1, 1)),
+        Token::new(SemiColon, Span::new(1, 6))
+    );
+
     test_lexer_err!(
         unterminated_string_literal,
         "\" this string is not terminated",

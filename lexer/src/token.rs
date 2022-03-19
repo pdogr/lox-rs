@@ -49,6 +49,8 @@ pub enum TokenType {
     This,
     Var,
     While,
+    Break,
+    Continue,
 
     // Eof
     Eof,
@@ -96,6 +98,8 @@ impl Display for TokenType {
                 This => "this",
                 Var => "var",
                 While => "while",
+                Break => "break",
+                Continue => "continue",
                 Eof => "<eof>",
                 Str => "<str>",
                 Numeric => "<numeric>",
@@ -151,6 +155,8 @@ impl Token {
             This => "this",
             Var => "var",
             While => "while",
+            Break => "break",
+            Continue => "continue",
             Eof => "<eof>",
             _ => unreachable!(),
         };

@@ -207,6 +207,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 TokenType::Return => self.return_stmt(),
                 TokenType::While => self.while_stmt(),
                 TokenType::For => self.for_stmt(),
+                TokenType::Break => self.break_stmt(),
                 _ => self.expr_stmt(),
             },
             None => unreachable!(),
@@ -256,7 +257,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             None
         };
         self.expect(TokenType::RightParen, "expected ) after for loop")?;
-
         let body = match self.i.peek() {
             Some(tok) if tok.ty == TokenType::Class || tok.ty == TokenType::Fun => {
                 return Err(ParserErrorKind::ExpectExpressionFound(match tok.ty {
@@ -267,17 +267,27 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             _ => self.statement()?,
         };
-        let loop_body = if let Some(update) = update {
+        let body = if let Some(update) = update {
             vec![body, Stmt::Expr(update)]
         } else {
             vec![body]
         };
+
         block.push(Stmt::Loop(Loop {
             cond,
-            body: Box::new(Stmt::Block(loop_body)),
+            body: Box::new(Stmt::Block(body)),
         }));
 
         Ok(Stmt::Block(block))
+    }
+
+    fn break_stmt(&mut self) -> ParseStmtResult {
+        self.next_token()?;
+        self.expect(
+            TokenType::SemiColon,
+            "Error: Expect ';' at the end of break statement.",
+        )?;
+        Ok(Stmt::Break)
     }
 
     fn if_stmt(&mut self) -> ParseStmtResult {
@@ -364,12 +374,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     _ => unreachable!(),
                 }))
             }
-            _ => self.statement()?,
+            _ => {
+                let body = self.statement()?;
+                match body {
+                    Stmt::Block(v) => v,
+                    x => vec![x],
+                }
+            }
         };
 
         Ok(Stmt::Loop(Loop {
             cond,
-            body: Box::new(body),
+            body: Box::new(Stmt::Block(body)),
         }))
     }
 

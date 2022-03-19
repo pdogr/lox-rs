@@ -39,6 +39,7 @@ lazy_static! {
             ("true", TokenType::True),
             ("var", TokenType::Var),
             ("while", TokenType::While),
+            ("break", TokenType::Break),
         ]
         .into_iter()
         .collect()

@@ -205,6 +205,7 @@ pub enum Stmt {
     Loop(Loop),
     FunctionDecl(FunctionDecl),
     Return(Expr),
+    Break,
     ClassDecl(ClassDecl),
 }
 

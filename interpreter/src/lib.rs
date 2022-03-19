@@ -132,8 +132,11 @@ pub enum ErrorOrCtxJmp {
     #[error("{0}")]
     EnvError(#[from] ast::EnvErrorKind),
 
-    #[error("encountered a RetJump, this is a BUG.")]
+    #[error("Encountered a RetJump, this is a BUG.")]
     RetJump { object: ast::Object },
+
+    #[error("Encountered a BrkJump, this is a BUG.")]
+    BrkJump,
 }
 
 type Result<T> = std::result::Result<T, ErrorOrCtxJmp>;

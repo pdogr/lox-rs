@@ -10,7 +10,7 @@ use paste::paste;
 
 use benches::generate_bench;
 
-generate_bench!(loop,  "lox-rs", "interpreter_main", loop_program!, [100,1000]);
+generate_bench!(loop,  "lox-rs", "interpreter_main", loop_program!, [100000]);
 
 criterion_group! {
     name = loop_benches;

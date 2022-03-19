@@ -30,10 +30,17 @@ enum ClassType {
     Class,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoopType {
+    None,
+    InLoop,
+}
+
 pub struct Resolver {
     scopes: Vec<HashMap<String, VariableState>>,
     current_function: FunctionType,
     current_class: ClassType,
+    current_loop: LoopType,
 }
 
 impl Default for Resolver {
@@ -48,6 +55,7 @@ impl Resolver {
             scopes: vec![HashMap::new()],
             current_function: FunctionType::None,
             current_class: ClassType::None,
+            current_loop: LoopType::None,
         }
     }
 
@@ -87,8 +95,11 @@ impl Resolver {
                 }
             }
             Stmt::Loop(Loop { cond, body }) => {
+                let previous_loop = self.current_loop;
+                self.current_loop = LoopType::InLoop;
                 self.resolve_expr(cond, interpreter)?;
                 self.resolve_stmt(body, interpreter)?;
+                self.current_loop = previous_loop;
             }
             Stmt::FunctionDecl(f) => {
                 self.init(&f.name);
@@ -165,6 +176,13 @@ impl Resolver {
                 }
 
                 self.current_class = enclosing_class;
+            }
+            Stmt::Break => {
+                if self.current_loop == LoopType::None {
+                    return Err(ErrorOrCtxJmp::Error(anyhow!(
+                        "Error at 'break': Can't break from top-level code."
+                    )));
+                }
             }
         }
         Ok(())
