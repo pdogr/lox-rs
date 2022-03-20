@@ -14,6 +14,10 @@ name = "instantiation"
 harness = false
 
 [[bench]]
+name = "invocation"
+harness = false
+
+[[bench]]
 name = "loop"
 harness = false
 
