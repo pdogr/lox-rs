@@ -10,11 +10,11 @@ use paste::paste;
 
 use benches::generate_bench;
 
-generate_bench!(properties,  "lox-rs", "interpreter_main", properties_program!, [10000]);
+generate_bench!(properties,  "lox-rs", "interpreter_main", properties_program!, [500000]);
 
 criterion_group! {
     name = properties_benchs;
-    config = Criterion::default().sample_size(20);
+    config = Criterion::default().sample_size(10);
     targets = properties_bench_fn,
 }
 

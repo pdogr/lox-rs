@@ -10,6 +10,14 @@ bench_helper = { path = "../bench_helper" }
 paste = "1.0.6"
 
 [[bench]]
+name = "binary_trees"
+harness = false 
+
+[[bench]]
+name = "equality"
+harness = false 
+
+[[bench]]
 name = "instantiation"
 harness = false
 
@@ -22,11 +30,27 @@ name = "loop"
 harness = false
 
 [[bench]]
+name = "method_call"
+harness = false
+
+[[bench]]
 name = "fib"
 harness = false
 
 [[bench]]
 name = "properties"
+harness = false
+
+[[bench]]
+name = "string_equality"
+harness = false
+
+[[bench]]
+name = "trees"
+harness = false
+
+[[bench]]
+name = "zoo"
 harness = false
 
 [lib]

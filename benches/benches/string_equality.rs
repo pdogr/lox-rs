@@ -1,5 +1,5 @@
 use bench_helper::bench_cmd;
-use bench_helper::fib_program;
+use bench_helper::string_equality_program;
 use bench_helper::tif;
 use bench_helper::CommandUnderTest;
 use criterion::criterion_group;
@@ -10,12 +10,12 @@ use paste::paste;
 
 use benches::generate_bench;
 
-generate_bench!(fib,  "lox-rs", "interpreter_main", fib_program!, [35]);
+generate_bench!(string_equality,  "lox-rs", "interpreter_main", string_equality_program!, [100000]);
 
 criterion_group! {
-    name = fib_benchs;
+    name = string_equality_benchs;
     config = Criterion::default().sample_size(10);
-    targets = fib_bench_fn,
+    targets = string_equality_bench_fn,
 }
 
-criterion_main!(fib_benchs);
+criterion_main!(string_equality_benchs);
